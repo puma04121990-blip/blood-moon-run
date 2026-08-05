@@ -3,6 +3,7 @@ import { GAME_HEIGHT, GAME_WIDTH } from './game/config';
 import { BootScene } from './scenes/BootScene';
 import { MenuScene } from './scenes/MenuScene';
 import { GameScene } from './scenes/GameScene';
+import { MetaScene } from './scenes/MetaScene';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -19,7 +20,7 @@ const config: Phaser.Types.Core.GameConfig = {
   input: {
     activePointers: 3,
   },
-  scene: [BootScene, MenuScene, GameScene],
+  scene: [BootScene, MenuScene, MetaScene, GameScene],
   fps: {
     target: 60,
     forceSetTimeOut: false,

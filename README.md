@@ -71,7 +71,7 @@ src/
 - [x] Victory + share hook  
 - [x] Save shards (VK Storage / localStorage)  
 - [x] Cartoon sprites (player, beast, 5 enemies, moon pickup)  
-- [ ] Meta upgrade tree  
+- [x] Meta upgrade tree (7 perks, shards, save)  
 - [ ] Animation frames / sprite sheets  
 - [ ] Ads / IAP production config  
 - [ ] VK app listing & moderation  

@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { COLORS, GAME_HEIGHT, GAME_WIDTH } from '../game/config';
 import { getUserName, isVkEnvironment } from '../vk/bridge';
+import { loadMeta } from '../meta/progress';
 
 export class MenuScene extends Phaser.Scene {
   constructor() {
@@ -12,39 +13,56 @@ export class MenuScene extends Phaser.Scene {
     const h = GAME_HEIGHT;
     this.cameras.main.setBackgroundColor(COLORS.bgDark);
 
+    const meta = await loadMeta();
+
     // moon
-    this.add.circle(w / 2, h * 0.2, 48, COLORS.moon, 0.95);
-    this.add.circle(w / 2 + 18, h * 0.18, 40, COLORS.bgDark, 1);
+    this.add.circle(w / 2, h * 0.18, 48, COLORS.moon, 0.95);
+    this.add.circle(w / 2 + 18, h * 0.16, 40, COLORS.bgDark, 1);
 
     // hero art
     if (this.textures.exists('player')) {
       this.add
-        .image(w / 2, h * 0.4, 'player')
-        .setDisplaySize(140, 140)
+        .image(w / 2, h * 0.36, 'player')
+        .setDisplaySize(130, 130)
         .setDepth(5);
     } else {
-      const wolf = this.add.container(w / 2, h * 0.42);
+      const wolf = this.add.container(w / 2, h * 0.36);
       wolf.add(this.add.circle(0, 0, 36, COLORS.playerFur));
       wolf.add(this.add.triangle(-18, -28, 0, 24, 16, 0, 0, 0, COLORS.playerFur));
       wolf.add(this.add.triangle(18, -28, 0, 24, 16, 0, 0, 0, COLORS.playerFur));
     }
 
     this.add
-      .text(w / 2, h * 0.12, 'НОЧЬ ОБОРОТНЯ', {
+      .text(w / 2, h * 0.1, 'НОЧЬ ОБОРОТНЯ', {
         fontFamily: 'system-ui, sans-serif',
-        fontSize: '30px',
+        fontSize: '28px',
         color: '#f0f4ff',
         fontStyle: 'bold',
       })
       .setOrigin(0.5);
 
     this.add
-      .text(w / 2, h * 0.16, 'Blood Moon Run', {
+      .text(w / 2, h * 0.14, 'Blood Moon Run', {
         fontFamily: 'system-ui, sans-serif',
         fontSize: '14px',
         color: '#8ab4ff',
       })
       .setOrigin(0.5);
+
+    // shards badge
+    if (this.textures.exists('pickup_moon')) {
+      this.add.image(w / 2 - 28, h * 0.5, 'pickup_moon').setDisplaySize(22, 22);
+    } else {
+      this.add.circle(w / 2 - 28, h * 0.5, 8, COLORS.moon);
+    }
+    this.add
+      .text(w / 2 - 12, h * 0.5, String(meta.shards), {
+        fontFamily: 'system-ui, sans-serif',
+        fontSize: '18px',
+        color: '#e8c547',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0, 0.5);
 
     const name = await getUserName();
     const subtitle = name
@@ -62,38 +80,25 @@ export class MenuScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.add
-      .text(w / 2, h * 0.6, 'Джойстик — движение\nАвто-атака · Вой · Трансформация', {
+      .text(w / 2, h * 0.59, `Рекорд: волна ${meta.bestWave} · ранов ${meta.runs}`, {
         fontFamily: 'system-ui, sans-serif',
-        fontSize: '13px',
-        color: '#8899aa',
-        align: 'center',
+        fontSize: '12px',
+        color: '#667788',
       })
       .setOrigin(0.5);
 
-    const btn = this.add.container(w / 2, h * 0.72);
-    const bg = this.add
-      .rectangle(0, 0, 220, 52, COLORS.accent, 1)
-      .setStrokeStyle(2, 0xffffff, 0.25)
-      .setInteractive({ useHandCursor: true });
-    const label = this.add
-      .text(0, 0, 'ИГРАТЬ', {
-        fontFamily: 'system-ui, sans-serif',
-        fontSize: '20px',
-        color: '#fff',
-        fontStyle: 'bold',
-      })
-      .setOrigin(0.5);
-    btn.add([bg, label]);
-
-    bg.on('pointerover', () => bg.setFillStyle(0xd44a5a));
-    bg.on('pointerout', () => bg.setFillStyle(COLORS.accent));
-    bg.on('pointerdown', () => {
+    // Play
+    this.makeButton(w / 2, h * 0.68, 220, 52, 'ИГРАТЬ', COLORS.accent, () => {
       this.scene.start('Game');
     });
 
-    // keyboard / desktop help
+    // Meta upgrades
+    this.makeButton(w / 2, h * 0.77, 220, 48, 'УСИЛЕНИЯ', 0x3a2a60, () => {
+      this.scene.start('Meta');
+    });
+
     this.add
-      .text(w / 2, h * 0.88, 'WASD / стрелки · Space = Вой · T = Transform', {
+      .text(w / 2, h * 0.9, 'WASD · Space = Вой · T = Transform', {
         fontFamily: 'system-ui, sans-serif',
         fontSize: '11px',
         color: '#556677',
@@ -101,11 +106,37 @@ export class MenuScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.add
-      .text(w / 2, h * 0.94, 'План: docs/PLAN.md · VK Mini Apps', {
+      .text(w / 2, h * 0.95, 'docs/PLAN.md · VK Mini Apps', {
         fontFamily: 'system-ui, sans-serif',
         fontSize: '10px',
         color: '#445566',
       })
       .setOrigin(0.5);
+  }
+
+  private makeButton(
+    x: number,
+    y: number,
+    bw: number,
+    bh: number,
+    label: string,
+    color: number,
+    onClick: () => void,
+  ): void {
+    const bg = this.add
+      .rectangle(x, y, bw, bh, color, 1)
+      .setStrokeStyle(2, 0xffffff, 0.25)
+      .setInteractive({ useHandCursor: true });
+    this.add
+      .text(x, y, label, {
+        fontFamily: 'system-ui, sans-serif',
+        fontSize: '18px',
+        color: '#fff',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5);
+    bg.on('pointerover', () => bg.setFillStyle(Phaser.Display.Color.IntegerToColor(color).brighten(12).color));
+    bg.on('pointerout', () => bg.setFillStyle(color));
+    bg.on('pointerdown', onClick);
   }
 }

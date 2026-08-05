@@ -11,7 +11,13 @@ import { Player } from '../entities/Player';
 import { Enemy } from '../entities/Enemy';
 import { VirtualJoystick } from '../ui/VirtualJoystick';
 import { HUD } from '../ui/HUD';
-import { shareScore, showRewardedAd, storageGet, storageSet } from '../vk/bridge';
+import { shareScore, showRewardedAd } from '../vk/bridge';
+import {
+  computeRunBonuses,
+  loadMeta,
+  saveMeta,
+  type MetaState,
+} from '../meta/progress';
 
 interface Pickup {
   sprite: Phaser.GameObjects.Image | Phaser.GameObjects.Arc;
@@ -50,7 +56,7 @@ export class GameScene extends Phaser.Scene {
   private gameOver = false;
   private overlay?: Phaser.GameObjects.Container;
   private levelUpOpen = false;
-  private metaShards = 0;
+  private meta!: MetaState;
 
   constructor() {
     super('Game');
@@ -64,9 +70,10 @@ export class GameScene extends Phaser.Scene {
     this.paused = false;
     this.gameOver = false;
     this.levelUpOpen = false;
+    this.rewardCommitted = false;
 
-    const stored = await storageGet(['shards']);
-    this.metaShards = parseInt(stored.shards || '0', 10) || 0;
+    this.meta = await loadMeta();
+    const bonuses = computeRunBonuses(this.meta);
 
     // Arena larger than screen for camera follow feel
     const mapW = GAME_WIDTH * 1.6;
@@ -79,7 +86,7 @@ export class GameScene extends Phaser.Scene {
     // Ambient moon
     this.add.circle(GAME_WIDTH * 0.8, 100, 30, COLORS.moon, 0.15).setScrollFactor(0.2).setDepth(0);
 
-    this.player = new Player(this, GAME_WIDTH / 2, GAME_HEIGHT / 2);
+    this.player = new Player(this, GAME_WIDTH / 2, GAME_HEIGHT / 2, bonuses);
     this.cameras.main.startFollow(this.player.sprite, true, 0.08, 0.08);
     this.cameras.main.setBounds(
       this.worldBounds.x,
@@ -493,18 +500,43 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  private rewardCommitted = false;
+
+  private async commitRunReward(baseShards: number): Promise<number> {
+    if (this.rewardCommitted) {
+      return Math.floor(baseShards * this.player.bonuses.shardGainMul);
+    }
+    const gained = Math.floor(baseShards * this.player.bonuses.shardGainMul);
+    this.meta.shards += gained;
+    this.meta.runs += 1;
+    this.meta.bestWave = Math.max(this.meta.bestWave, this.wave);
+    await saveMeta(this.meta);
+    this.rewardCommitted = true;
+    return gained;
+  }
+
+  private previewShards(base: number): number {
+    return Math.floor(base * this.player.bonuses.shardGainMul);
+  }
+
+  private async endRunTo(scene: 'Menu' | 'Meta' | 'restart', baseShards: number): Promise<void> {
+    await this.commitRunReward(baseShards);
+    this.cleanup();
+    if (scene === 'restart') this.scene.restart();
+    else this.scene.start(scene);
+  }
+
   private async onDeath(): Promise<void> {
     if (this.gameOver) return;
     this.gameOver = true;
     this.spawnTimer?.remove(false);
 
-    const shards = this.player.currency + this.wave * 2;
-    this.metaShards += shards;
-    await storageSet('shards', String(this.metaShards));
+    const base = this.player.currency + this.wave * 2;
+    const preview = this.previewShards(base);
 
     this.showOverlay(
       'ТЫ ПАЛ',
-      `Волна ${this.wave} · Осколки +${shards} (всего ${this.metaShards})`,
+      `Волна ${this.wave} · Осколки +${preview}`,
       [
         {
           label: 'Воскреснуть (реклама)',
@@ -520,18 +552,16 @@ export class GameScene extends Phaser.Scene {
           },
         },
         {
+          label: 'Усиления',
+          action: () => void this.endRunTo('Meta', base),
+        },
+        {
           label: 'Заново',
-          action: () => {
-            this.cleanup();
-            this.scene.restart();
-          },
+          action: () => void this.endRunTo('restart', base),
         },
         {
           label: 'В меню',
-          action: () => {
-            this.cleanup();
-            this.scene.start('Menu');
-          },
+          action: () => void this.endRunTo('Menu', base),
         },
       ],
     );
@@ -541,18 +571,24 @@ export class GameScene extends Phaser.Scene {
     if (this.gameOver) return;
     this.gameOver = true;
     this.spawnTimer?.remove(false);
-    const shards = this.player.currency + 50;
-    this.metaShards += shards;
-    await storageSet('shards', String(this.metaShards));
+    const base = this.player.currency + 50;
+    const gained = await this.commitRunReward(base);
     const msg = `Ночь Оборотня: я пережил ${BALANCE.waveTotal} волн! 🐺🌕`;
 
     this.showOverlay(
       'РАССВЕТ',
-      `Ты выжил! +${shards} осколков`,
+      `Ты выжил! +${gained} осколков (всего ${this.meta.shards})`,
       [
         {
           label: 'Поделиться',
           action: () => shareScore(msg),
+        },
+        {
+          label: 'Усиления',
+          action: () => {
+            this.cleanup();
+            this.scene.start('Meta');
+          },
         },
         {
           label: 'Ещё раз',

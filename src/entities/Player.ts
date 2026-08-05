@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { BALANCE } from '../game/config';
+import type { RunBonuses } from '../meta/progress';
 
 export class Player {
   readonly sprite: Phaser.GameObjects.Image;
@@ -20,11 +21,32 @@ export class Player {
   radius = 18;
   invulnUntil = 0;
   private facing = 1;
+  /** Meta bonuses for this run */
+  readonly bonuses: RunBonuses;
+  private metaDamageMul: number;
+  private metaSpeedMul: number;
+  private metaMoonMul: number;
+  private metaDamageTakenMul: number;
 
-  constructor(scene: Phaser.Scene, x: number, y: number) {
+  constructor(scene: Phaser.Scene, x: number, y: number, bonuses?: RunBonuses) {
     this.scene = scene;
-    this.hp = BALANCE.playerMaxHp;
-    this.maxHp = BALANCE.playerMaxHp;
+    this.bonuses = bonuses ?? {
+      maxHp: BALANCE.playerMaxHp,
+      speedMul: 1,
+      damageMul: 1,
+      skillCharges: BALANCE.skillChargesStart,
+      moonGainMul: 1,
+      shardGainMul: 1,
+      damageTakenMul: 1,
+    };
+    this.metaDamageMul = this.bonuses.damageMul;
+    this.metaSpeedMul = this.bonuses.speedMul;
+    this.metaMoonMul = this.bonuses.moonGainMul;
+    this.metaDamageTakenMul = this.bonuses.damageTakenMul;
+
+    this.maxHp = this.bonuses.maxHp;
+    this.hp = this.maxHp;
+    this.skillCharges = this.bonuses.skillCharges;
 
     const hasArt = scene.textures.exists('player');
     this.sprite = scene.add
@@ -33,7 +55,6 @@ export class Player {
       .setDepth(50);
 
     if (!hasArt) {
-      // fallback circle if texture missing
       this.sprite.setVisible(false);
     }
   }
@@ -50,11 +71,13 @@ export class Player {
   }
 
   get damageMul(): number {
-    return this.transformed ? BALANCE.transformDamageMul : 1;
+    const form = this.transformed ? BALANCE.transformDamageMul : 1;
+    return form * this.metaDamageMul;
   }
 
   get speed(): number {
-    return BALANCE.playerSpeed * (this.transformed ? BALANCE.transformSpeedMul : 1);
+    const form = this.transformed ? BALANCE.transformSpeedMul : 1;
+    return BALANCE.playerSpeed * form * this.metaSpeedMul;
   }
 
   move(dx: number, dy: number, dt: number, bounds: Phaser.Geom.Rectangle): void {
@@ -116,7 +139,8 @@ export class Player {
 
   addMoon(amount: number): void {
     if (this.transformed) return;
-    this.moon = Math.min(BALANCE.moonMax, this.moon + amount);
+    const gained = amount * this.metaMoonMul;
+    this.moon = Math.min(BALANCE.moonMax, this.moon + gained);
   }
 
   tryTransform(now: number): boolean {
@@ -146,7 +170,7 @@ export class Player {
 
   takeDamage(amount: number, now: number, isSilver = false): void {
     if (now < this.invulnUntil) return;
-    const mul = isSilver ? 1.5 : 1;
+    const mul = (isSilver ? 1.5 : 1) * this.metaDamageTakenMul;
     this.hp = Math.max(0, this.hp - amount * mul);
     this.invulnUntil = now + 350;
     this.scene.tweens.add({
