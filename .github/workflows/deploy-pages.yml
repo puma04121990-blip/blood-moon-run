@@ -1,5 +1,6 @@
-# Deploy static build to GitHub Pages on every push to main.
-# VK Mini App simply points to this HTTPS URL — no vk-miniapps-deploy needed.
+# Build Vite app and publish dist/ to gh-pages branch.
+# Site: https://<user>.github.io/blood-moon-run/
+# Fix for blank page: do NOT serve repo root (dev index.html) — only dist.
 
 name: Deploy to GitHub Pages
 
@@ -9,16 +10,14 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -28,28 +27,22 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
 
       - name: Install
-        run: npm ci || npm install
+        run: npm install
 
       - name: Build
-        # base './' keeps assets relative — works on
-        # https://<user>.github.io/blood-moon-run/
         run: npm run build
+        env:
+          # relative assets for project Pages path /blood-moon-run/
+          NODE_ENV: production
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Add .nojekyll
+        run: touch dist/.nojekyll
+
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          path: dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          force_orphan: true
