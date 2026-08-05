@@ -1,0 +1,21 @@
+{
+  "name": "blood-moon-run",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Blood Moon Run / Ночь Оборотня — werewolf survival for VK Games",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@vkontakte/vk-bridge": "^2.15.0",
+    "phaser": "^3.88.2"
+  },
+  "devDependencies": {
+    "typescript": "~5.8.3",
+    "vite": "^6.3.5"
+  }
+}
