@@ -73,15 +73,30 @@ src/
 - [x] Cartoon sprites (player, beast, 5 enemies, moon pickup)  
 - [x] Meta upgrade tree (7 perks, shards, save)  
 - [x] Player walk / attack animations (sprite sheets)  
-- [ ] Ads / IAP production config  
-- [ ] VK app listing & moderation  
+- [x] VK Mini App config, deploy scripts, publish guide  
+- [ ] Ads cabinet enable + IAP  
+- [ ] Submit for moderation  
 
 ## VK Mini Apps
 
-1. Создай приложение: [dev.vk.com](https://dev.vk.com)  
-2. Укажи URL `dist` (HTTPS)  
-3. Orientation: **portrait**  
-4. Подключи VK Bridge (уже в коде)
+Полный гайд: **[docs/VK_PUBLISH.md](./docs/VK_PUBLISH.md)**
+
+```bash
+# 1. App ID в vk-hosting-config.json
+# 2. Иконки-заглушки
+npm run icons:placeholder
+# 3. Сборка + деплой на хостинг VK
+npm run deploy:vk
+# или tunnel для теста на телефоне
+npm run tunnel
+```
+
+| | |
+|--|--|
+| Конфиг хостинга | `vk-hosting-config.json` |
+| Bridge | `src/vk/bridge.ts` |
+| Orientation | **portrait** |
+| Env example | `.env.example` |
 
 ## Лицензия
 

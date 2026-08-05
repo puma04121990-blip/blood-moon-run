@@ -10,8 +10,16 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="screen-orientation" content="portrait" />
+    <meta name="theme-color" content="#0a0e14" />
+    <link rel="icon" type="image/png" href="/icon-192.png" />
     <title>Ночь Оборотня — Blood Moon Run</title>
     <style>
+      :root {
+        --safe-top: 0px;
+        --safe-bottom: 0px;
+        --safe-left: 0px;
+        --safe-right: 0px;
+      }
       html,
       body {
         margin: 0;
@@ -24,6 +32,9 @@
         user-select: none;
         -webkit-user-select: none;
         -webkit-touch-callout: none;
+        /* VK WebView notches */
+        padding-top: env(safe-area-inset-top, var(--safe-top));
+        padding-bottom: env(safe-area-inset-bottom, var(--safe-bottom));
       }
       #game-container {
         width: 100%;

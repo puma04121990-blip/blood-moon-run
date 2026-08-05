@@ -5,8 +5,12 @@ dist-ssr
 .DS_Store
 *.log
 .env
-.env.*
+.env.local
+.env.*.local
 .vscode/*
 !.vscode/extensions.json
 .idea
 *.tsbuildinfo
+# VK deploy auth cache
+.vk-deploy
+deploy_result.json
