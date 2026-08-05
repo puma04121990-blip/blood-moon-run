@@ -14,7 +14,7 @@ import { HUD } from '../ui/HUD';
 import { shareScore, showRewardedAd, storageGet, storageSet } from '../vk/bridge';
 
 interface Pickup {
-  sprite: Phaser.GameObjects.Arc;
+  sprite: Phaser.GameObjects.Image | Phaser.GameObjects.Arc;
   value: number;
 }
 
@@ -314,7 +314,9 @@ export class GameScene extends Phaser.Scene {
     });
 
     // drops
-    const drop = this.add.circle(e.x, e.y, 6, COLORS.moon, 1).setDepth(20);
+    const drop = this.textures.exists('pickup_moon')
+      ? this.add.image(e.x, e.y, 'pickup_moon').setDisplaySize(22, 22).setDepth(20)
+      : this.add.circle(e.x, e.y, 6, COLORS.moon, 1).setDepth(20);
     this.pickups.push({ sprite: drop, value: e.def.currency });
 
     this.player.addMoon(BALANCE.moonPerKill + (e.def.isBoss ? 40 : 0));

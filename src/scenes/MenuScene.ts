@@ -13,16 +13,21 @@ export class MenuScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(COLORS.bgDark);
 
     // moon
-    this.add.circle(w / 2, h * 0.22, 48, COLORS.moon, 0.95);
-    this.add.circle(w / 2 + 18, h * 0.2, 40, COLORS.bgDark, 1);
+    this.add.circle(w / 2, h * 0.2, 48, COLORS.moon, 0.95);
+    this.add.circle(w / 2 + 18, h * 0.18, 40, COLORS.bgDark, 1);
 
-    // wolf silhouette (simple)
-    const wolf = this.add.container(w / 2, h * 0.42);
-    wolf.add(this.add.circle(0, 0, 36, COLORS.playerFur));
-    wolf.add(this.add.triangle(-18, -28, 0, 24, 16, 0, 0, 0, COLORS.playerFur));
-    wolf.add(this.add.triangle(18, -28, 0, 24, 16, 0, 0, 0, COLORS.playerFur));
-    wolf.add(this.add.circle(-10, -4, 4, 0xff6666));
-    wolf.add(this.add.circle(10, -4, 4, 0xff6666));
+    // hero art
+    if (this.textures.exists('player')) {
+      this.add
+        .image(w / 2, h * 0.4, 'player')
+        .setDisplaySize(140, 140)
+        .setDepth(5);
+    } else {
+      const wolf = this.add.container(w / 2, h * 0.42);
+      wolf.add(this.add.circle(0, 0, 36, COLORS.playerFur));
+      wolf.add(this.add.triangle(-18, -28, 0, 24, 16, 0, 0, 0, COLORS.playerFur));
+      wolf.add(this.add.triangle(18, -28, 0, 24, 16, 0, 0, 0, COLORS.playerFur));
+    }
 
     this.add
       .text(w / 2, h * 0.12, 'НОЧЬ ОБОРОТНЯ', {

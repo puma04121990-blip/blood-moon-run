@@ -1,9 +1,8 @@
 import Phaser from 'phaser';
-import { BALANCE, COLORS } from '../game/config';
+import { BALANCE } from '../game/config';
 
 export class Player {
-  readonly body: Phaser.GameObjects.Container;
-  readonly sprite: Phaser.GameObjects.Container;
+  readonly sprite: Phaser.GameObjects.Image;
   hp: number;
   maxHp: number;
   level = 1;
@@ -17,29 +16,26 @@ export class Player {
   private lastAttack = 0;
   private lastSkill = 0;
   private scene: Phaser.Scene;
-  private bodyGfx: Phaser.GameObjects.Arc;
-  private earL: Phaser.GameObjects.Triangle;
-  private earR: Phaser.GameObjects.Triangle;
-  private face: Phaser.GameObjects.Arc;
   private clawFlash?: Phaser.GameObjects.Arc;
-  radius = 16;
+  radius = 18;
   invulnUntil = 0;
+  private facing = 1;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     this.scene = scene;
     this.hp = BALANCE.playerMaxHp;
     this.maxHp = BALANCE.playerMaxHp;
 
-    this.sprite = scene.add.container(x, y);
-    this.bodyGfx = scene.add.circle(0, 0, this.radius, COLORS.playerFur, 1).setStrokeStyle(2, 0x2a1a0a);
-    this.earL = scene.add.triangle(-10, -14, 0, 14, 10, 0, 0, 0, COLORS.playerFur, 1);
-    this.earR = scene.add.triangle(10, -14, 0, 14, 10, 0, 0, 0, COLORS.playerFur, 1);
-    this.face = scene.add.circle(0, 2, 8, 0xf5d0a9, 1);
-    const eyeL = scene.add.circle(-4, 0, 2, 0x111111);
-    const eyeR = scene.add.circle(4, 0, 2, 0x111111);
-    this.sprite.add([this.earL, this.earR, this.bodyGfx, this.face, eyeL, eyeR]);
-    this.sprite.setDepth(50);
-    this.body = this.sprite;
+    const hasArt = scene.textures.exists('player');
+    this.sprite = scene.add
+      .image(x, y, hasArt ? 'player' : '__DEFAULT')
+      .setDisplaySize(56, 56)
+      .setDepth(50);
+
+    if (!hasArt) {
+      // fallback circle if texture missing
+      this.sprite.setVisible(false);
+    }
   }
 
   get x(): number {
@@ -71,8 +67,9 @@ export class Player {
     x = Phaser.Math.Clamp(x, bounds.left + this.radius, bounds.right - this.radius);
     y = Phaser.Math.Clamp(y, bounds.top + this.radius, bounds.bottom - this.radius);
     this.sprite.setPosition(x, y);
-    // face move direction lightly
-    this.sprite.setScale(nx < -0.1 ? -1 : 1, 1);
+    if (nx < -0.15) this.facing = -1;
+    else if (nx > 0.15) this.facing = 1;
+    this.sprite.setFlipX(this.facing < 0);
   }
 
   canAttack(now: number): boolean {
@@ -82,10 +79,9 @@ export class Player {
 
   markAttack(now: number): void {
     this.lastAttack = now;
-    // visual slash
     if (this.clawFlash) this.clawFlash.destroy();
     this.clawFlash = this.scene.add
-      .circle(this.x, this.y, this.transformed ? 36 : 28, COLORS.howl, 0.35)
+      .circle(this.x, this.y, this.transformed ? 40 : 30, 0x9b6dff, 0.35)
       .setDepth(40);
     this.scene.tweens.add({
       targets: this.clawFlash,
@@ -96,6 +92,14 @@ export class Player {
         this.clawFlash?.destroy();
         this.clawFlash = undefined;
       },
+    });
+    // punch scale punch
+    this.scene.tweens.add({
+      targets: this.sprite,
+      scaleX: this.sprite.scaleX * 1.12,
+      scaleY: this.sprite.scaleY * 0.92,
+      yoyo: true,
+      duration: 80,
     });
   }
 
@@ -132,11 +136,12 @@ export class Player {
   }
 
   private applyTransformVisual(on: boolean): void {
-    this.bodyGfx.setFillStyle(on ? 0x3a2818 : COLORS.playerFur);
-    this.bodyGfx.setRadius(on ? 20 : this.radius);
-    this.earL.setScale(on ? 1.3 : 1);
-    this.earR.setScale(on ? 1.3 : 1);
-    this.face.setVisible(!on);
+    const key = on && this.scene.textures.exists('player_beast') ? 'player_beast' : 'player';
+    if (this.scene.textures.exists(key)) {
+      this.sprite.setTexture(key);
+      this.sprite.setDisplaySize(on ? 68 : 56, on ? 68 : 56);
+    }
+    this.radius = on ? 22 : 18;
   }
 
   takeDamage(amount: number, now: number, isSilver = false): void {
@@ -174,6 +179,6 @@ export class Player {
 
   destroy(): void {
     this.clawFlash?.destroy();
-    this.sprite.destroy(true);
+    this.sprite.destroy();
   }
 }
