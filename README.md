@@ -72,7 +72,7 @@ src/
 - [x] Save shards (VK Storage / localStorage)  
 - [x] Cartoon sprites (player, beast, 5 enemies, moon pickup)  
 - [x] Meta upgrade tree (7 perks, shards, save)  
-- [ ] Animation frames / sprite sheets  
+- [x] Player walk / attack animations (sprite sheets)  
 - [ ] Ads / IAP production config  
 - [ ] VK app listing & moderation  
 
