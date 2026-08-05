@@ -1,4 +1,5 @@
 {
+  "_comment": "OPTIONAL — only if you use VK native hosting instead of GitHub Pages. Preferred deploy: push to main → GitHub Actions → Pages. See docs/VK_PUBLISH.md",
   "static_path": "dist",
   "app_id": 0,
   "endpoints": {

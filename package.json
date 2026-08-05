@@ -9,17 +9,13 @@
     "build": "vite build",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
-    "icons:placeholder": "node scripts/make-icons.mjs",
-    "deploy:vk": "npm run build && vk-miniapps-deploy",
-    "tunnel": "vk-tunnel"
+    "icons:placeholder": "node scripts/make-icons.mjs"
   },
   "dependencies": {
     "@vkontakte/vk-bridge": "^2.15.0",
     "phaser": "^3.88.2"
   },
   "devDependencies": {
-    "@vkontakte/vk-miniapps-deploy": "^0.1.9",
-    "@vkontakte/vk-tunnel": "^0.2.5",
     "typescript": "~5.8.3",
     "vite": "^6.3.5"
   }

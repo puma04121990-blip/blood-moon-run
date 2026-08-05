@@ -31,8 +31,9 @@ npm run dev
 Открой URL из терминала (лучше с телефона в той же сети или DevTools device mode, portrait).
 
 ```bash
-npm run build   # → dist/ для хостинга VK
+npm run build    # → dist/
 npm run preview
+git push         # → GitHub Pages (автодеплой), URL в админку VK
 ```
 
 ## Управление
@@ -77,26 +78,16 @@ src/
 - [ ] Ads cabinet enable + IAP  
 - [ ] Submit for moderation  
 
-## VK Mini Apps
+## Деплой: GitHub Pages → URL в VK
 
-Полный гайд: **[docs/VK_PUBLISH.md](./docs/VK_PUBLISH.md)**
+**Не нужен** `vk-miniapps-deploy`. VK только открывает HTTPS-страницу.
 
-```bash
-# 1. App ID в vk-hosting-config.json
-# 2. Иконки-заглушки
-npm run icons:placeholder
-# 3. Сборка + деплой на хостинг VK
-npm run deploy:vk
-# или tunnel для теста на телефоне
-npm run tunnel
-```
+1. **Settings → Pages → Source: GitHub Actions**
+2. `git push origin main` → workflow `deploy-pages.yml` собирает и публикует
+3. URL вида `https://puma04121990-blip.github.io/blood-moon-run/` вписать в админку VK Mini App
+4. Ориентация: **portrait**
 
-| | |
-|--|--|
-| Конфиг хостинга | `vk-hosting-config.json` |
-| Bridge | `src/vk/bridge.ts` |
-| Orientation | **portrait** |
-| Env example | `.env.example` |
+Подробно: **[docs/VK_PUBLISH.md](./docs/VK_PUBLISH.md)** · Bridge: `src/vk/bridge.ts`
 
 ## Лицензия
 

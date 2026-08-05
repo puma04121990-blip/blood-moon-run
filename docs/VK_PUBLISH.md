@@ -1,156 +1,122 @@
 # Публикация в VK Mini Apps / VK Games
 
-Гайд для **Ночь Оборотня (Blood Moon Run)** — HTML5, portrait, mobile-first.
+**Основной способ деплоя: GitHub Pages.**  
+VK открывает игру по HTTPS URL — отдельный `vk-miniapps-deploy` **не нужен**.
 
-Официально: [dev.vk.com — Mini Apps](https://dev.vk.com/mini-apps/getting-started) · [Хостинг](https://dev.vk.com/mini-apps/development/hosting)
+Официально: [dev.vk.com — Mini Apps](https://dev.vk.com/mini-apps/getting-started)
 
 ---
 
-## 1. Создать приложение
+## Как это устроено
 
-1. Открой [vk.com/apps?act=manage](https://vk.com/apps?act=manage) или [dev.vk.com](https://dev.vk.com).
-2. **Создать** → тип **VK Mini Apps** (игра / мини-приложение).
-3. Заполни название: `Ночь Оборотня` / `Blood Moon Run`.
-4. Скопируй **App ID** → впиши в:
-   - `vk-hosting-config.json` → `"app_id": YOUR_ID`
-   - `.env.local` → `VITE_VK_APP_ID=YOUR_ID` (опционально)
+```
+push в main
+    → GitHub Actions собирает Vite (dist/)
+    → GitHub Pages раздаёт HTTPS
+    → В админке VK указываешь этот URL
+    → Игроки открывают мини-приложение во WebView
+```
 
-### Рекомендуемые настройки в админке
+Пример URL (после включения Pages):
+
+```
+https://puma04121990-blip.github.io/blood-moon-run/
+```
+
+(или с `index.html` в конце — как требует админка)
+
+---
+
+## 1. Один раз: включить GitHub Pages
+
+1. Репозиторий → **Settings → Pages**
+2. **Source:** GitHub Actions  
+   (не «Deploy from a branch»)
+3. Запушь в `main` или **Actions → Deploy to GitHub Pages → Run workflow**
+4. Дождись зелёного workflow `.github/workflows/deploy-pages.yml`
+5. URL появится в Settings → Pages
+
+Workflow уже в репо: каждый push в `main` пересобирает и публикует игру.
+
+---
+
+## 2. Создать приложение VK
+
+1. [vk.com/apps?act=manage](https://vk.com/apps?act=manage) / [dev.vk.com](https://dev.vk.com)
+2. Создать **VK Mini Apps**
+3. Название: `Ночь Оборотня` / `Blood Moon Run`
+4. **URL приложения** = URL GitHub Pages (HTTPS)
+5. Ориентация: **Portrait**
+6. Иконка: `public/icon-278.png` (загрузить в админку)
 
 | Параметр | Значение |
 |----------|----------|
-| Ориентация | **Portrait** (книжная) |
-| Платформы | iOS, Android, Web (MVK) |
-| URL (если свой хост) | HTTPS `https://…/index.html` |
-| Или | Хостинг VK (см. §3) |
-| Возраст | 12+ / 16+ (cartoon violence) |
-| Категория | Игры → экшен / аркада |
+| URL | `https://<user>.github.io/blood-moon-run/` |
+| Ориентация | Portrait |
+| Платформы | iOS, Android, Web |
+| Возраст | 12+ / 16+ (cartoon) |
+
+Опционально: `.env.local` → `VITE_VK_APP_ID=…` (для логов/аналитики).
 
 ---
 
-## 2. Локальная разработка
+## 3. Локальная разработка
 
 ```bash
 npm install
 npm run dev
 ```
 
-- Вне WebView VK Bridge работает в **mock** (localStorage, «реклама» = успех).
-- Проверка в клиенте VK:
-  1. `npm run build && npm run preview` (или tunnel)
-  2. В админке укажи URL preview / [vk-tunnel](https://dev.vk.com/mini-apps/development/testing)
-  3. Открой приложение из VK на телефоне
+Вне WebView Bridge в mock (localStorage, «реклама» = ok).
 
-### Tunnel (опционально)
-
-```bash
-npx @vkontakte/vk-tunnel
-```
-
-Подставь выданный HTTPS URL в настройки приложения (dev endpoint).
+Тест на телефоне до Pages: `npm run preview` + свой туннель, либо сразу Pages.
 
 ---
 
-## 3. Сборка и деплой на хостинг VK
+## 4. Что в коде (VK Bridge)
 
-```bash
-npm install
-npm run build          # → dist/
-npm run deploy:vk      # vk-miniapps-deploy (нужен app_id + авторизация)
-```
+| | |
+|--|--|
+| Init, user, storage | `src/vk/bridge.ts` |
+| Rewarded / interstitial ads | там же |
+| Share, haptic, safe area | там же |
+| `base: './'` в Vite | относительные пути → ок на Pages |
 
-Или вручную:
-
-```bash
-npx @vkontakte/vk-miniapps-deploy
-```
-
-Конфиг: [`vk-hosting-config.json`](../vk-hosting-config.json)
-
-- `static_path`: `dist`
-- `endpoints.mobile|mvk|web`: `index.html`
-- **`app_id`**: твой ID (не оставляй `0`)
-
-При первом деплое откроется авторизация VK.
-
-### Свой HTTPS-хост
-
-1. `npm run build`
-2. Залей содержимое `dist/` на HTTPS (GitHub Pages, Cloudflare Pages, Vercel, …)
-3. В админке VK укажи URL `https://your-domain/index.html`
-4. `base` в Vite уже `./` — относительные пути для assets.
-
----
-
-## 4. Что уже в коде (VK Bridge)
-
-| Возможность | Метод / файл |
-|-------------|--------------|
-| Init | `VKWebAppInit` → `src/vk/bridge.ts` |
-| User name | `VKWebAppGetUserInfo` |
-| Save / load | `VKWebAppStorageSet/Get` (+ localStorage fallback) |
-| Rewarded ads | `VKWebAppShowNativeAds` (reward) |
-| Share | `VKWebAppShare` / wall post |
-| Safe area | `VKWebAppGetSafeAreaInsets` (применяется к CSS vars) |
-| Portrait hint | `VKWebAppSetViewSettings` + meta orientation |
-| Launch params | `vk_user_id`, `vk_app_id`, `vk_platform` в query |
-
-Включи **рекламу** в кабинете приложения (монетизация), иначе rewarded может падать — код обработает ошибку.
+Рекламу всё равно нужно **включить в кабинете** VK, иначе rewarded может не показаться.
 
 ---
 
 ## 5. Чеклист модерации
 
-- [ ] Свой арт/название (не копия бренда Pickle Pete)
-- [ ] Нет жестокого gore; cartoon-стиль
-- [ ] Работает на mid Android + iOS WebView
-- [ ] Portrait, без обязательного landscape
-- [ ] Иконка 278×278 (или актуальный размер в админке) + splash
-- [ ] Описание RU, скриншоты portrait
-- [ ] Privacy / данные: только storage + user name (если запрашиваешь)
-- [ ] Реклама не блокирует первый запуск навечно
-- [ ] `VKWebAppInit` вызывается при старте
-- [ ] HTTPS, без mixed content
+- [ ] Pages отдаёт игру по HTTPS
+- [ ] URL прописан в админке VK
+- [ ] Portrait, свой арт/название
+- [ ] Иконка + описание + скриншоты
+- [ ] `VKWebAppInit` при старте
+- [ ] Нет hard paywall / жестокого gore
 
 ---
 
-## 6. Иконки и материалы
+## 6. Опционально: хостинг VK
 
-Положи в `public/`:
-
-| Файл | Назначение |
-|------|------------|
-| `icon-278.png` | Иконка приложения (загрузить в админку) |
-| `splash.png` | Splash (опционально) |
-| `og-cover.png` | Обложка для каталога |
-
-Генерация placeholder:
+Если **очень** захочется заливать на сервера VK (не GitHub):
 
 ```bash
-npm run icons:placeholder
+# app_id в vk-hosting-config.json
+npx @vkontakte/vk-miniapps-deploy
 ```
 
-(скрипт рисует простую иконку с луной/волком)
+Это **не основной** путь. Для большинства случаев GitHub Pages проще и прозрачнее (история деплоев = коммиты).
 
 ---
 
-## 7. Аналитика (позже)
+## Команды
 
-- События: `run_start`, `wave_clear`, `death`, `ad_reward`, `meta_buy`
-- MyTracker / VK pixel — по [доке](https://docs.tracker.my.com/en/tracking/platforms/vk-mini-apps)
+| | |
+|--|--|
+| `npm run dev` | Локально |
+| `npm run build` | Сборка `dist/` |
+| `git push origin main` | **Автодеплой на Pages** |
+| `npm run icons:placeholder` | Иконки-заглушки |
 
----
-
-## 8. Быстрые команды
-
-| Команда | Действие |
-|---------|----------|
-| `npm run dev` | Локальный dev-сервер |
-| `npm run build` | Production `dist/` |
-| `npm run preview` | Превью dist |
-| `npm run deploy:vk` | Деплой на хостинг VK |
-| `npm run typecheck` | TypeScript check |
-
----
-
-*Связанный GDD: [PLAN.md](./PLAN.md)*
+*GDD: [PLAN.md](./PLAN.md)*
