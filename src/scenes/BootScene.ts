@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { initVk } from '../vk/bridge';
+import { loadMeta } from '../meta/progress';
 
 const SPRITES = [
   'player',
@@ -41,6 +42,8 @@ export class BootScene extends Phaser.Scene {
         color: '#a0aec0',
       })
       .setOrigin(0.5);
+    // stash for create()
+    this.registry.set('bootStatus', status);
 
     this.add.rectangle(width / 2, height / 2 + 56, 200, 10, 0x222222);
     const bar = this.add.rectangle(width / 2 - 100, height / 2 + 56, 0, 10, 0x5cb85c).setOrigin(0, 0.5);
@@ -54,7 +57,6 @@ export class BootScene extends Phaser.Scene {
       this.load.image(key, `assets/sprites/${key}.png`);
     }
 
-    // Sprite sheets for animations (frame size 128×128)
     this.load.spritesheet('player_walk_sheet', 'assets/sprites/player_walk_sheet.png', {
       frameWidth: 128,
       frameHeight: 128,
@@ -65,8 +67,7 @@ export class BootScene extends Phaser.Scene {
     });
   }
 
-  async create(): Promise<void> {
-    // Register animations once textures exist
+  create(): void {
     if (this.textures.exists('player_walk_sheet') && !this.anims.exists('player_walk')) {
       this.anims.create({
         key: 'player_walk',
@@ -92,19 +93,24 @@ export class BootScene extends Phaser.Scene {
       });
     }
 
-    const { width, height } = this.scale;
-    const status = this.add
-      .text(width / 2, height / 2 + 90, 'Аутентификация…', {
-        fontFamily: 'system-ui, sans-serif',
-        fontSize: '14px',
-        color: '#a0aec0',
-      })
-      .setOrigin(0.5);
+    const status = this.registry.get('bootStatus') as Phaser.GameObjects.Text | undefined;
+    status?.setText('Аутентификация…');
 
-    await initVk();
-    status.setText('Вход в игру…');
+    // Finish VK + meta BEFORE Menu — scenes use sync create only
+    void this.finishBoot(status);
+  }
 
-    this.time.delayedCall(350, () => {
+  private async finishBoot(status?: Phaser.GameObjects.Text): Promise<void> {
+    try {
+      await initVk();
+      status?.setText('Загрузка прогресса…');
+      await loadMeta();
+      status?.setText('Вход в игру…');
+    } catch (e) {
+      console.warn('[Boot]', e);
+      status?.setText('Ошибка загрузки, продолжаем…');
+    }
+    this.time.delayedCall(200, () => {
       this.scene.start('Menu');
     });
   }

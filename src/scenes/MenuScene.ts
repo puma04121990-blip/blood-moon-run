@@ -1,35 +1,29 @@
 import Phaser from 'phaser';
 import { COLORS, GAME_HEIGHT, GAME_WIDTH } from '../game/config';
 import { getUserName, isVkEnvironment } from '../vk/bridge';
-import { loadMeta } from '../meta/progress';
+import { getMetaCached } from '../meta/progress';
 
 export class MenuScene extends Phaser.Scene {
   constructor() {
     super('Menu');
   }
 
-  async create(): Promise<void> {
+  create(): void {
     const w = GAME_WIDTH;
     const h = GAME_HEIGHT;
     this.cameras.main.setBackgroundColor(COLORS.bgDark);
 
-    const meta = await loadMeta();
+    const meta = getMetaCached();
 
     // moon
     this.add.circle(w / 2, h * 0.18, 48, COLORS.moon, 0.95);
     this.add.circle(w / 2 + 18, h * 0.16, 40, COLORS.bgDark, 1);
 
-    // hero art
     if (this.textures.exists('player')) {
       this.add
         .image(w / 2, h * 0.36, 'player')
         .setDisplaySize(130, 130)
         .setDepth(5);
-    } else {
-      const wolf = this.add.container(w / 2, h * 0.36);
-      wolf.add(this.add.circle(0, 0, 36, COLORS.playerFur));
-      wolf.add(this.add.triangle(-18, -28, 0, 24, 16, 0, 0, 0, COLORS.playerFur));
-      wolf.add(this.add.triangle(18, -28, 0, 24, 16, 0, 0, 0, COLORS.playerFur));
     }
 
     this.add
@@ -49,7 +43,6 @@ export class MenuScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    // shards badge
     if (this.textures.exists('pickup_moon')) {
       this.add.image(w / 2 - 28, h * 0.5, 'pickup_moon').setDisplaySize(22, 22);
     } else {
@@ -64,20 +57,19 @@ export class MenuScene extends Phaser.Scene {
       })
       .setOrigin(0, 0.5);
 
-    const name = await getUserName();
-    const subtitle = name
-      ? `Привет, ${name}`
-      : isVkEnvironment()
-        ? 'VK Games'
-        : 'Режим разработки (вне VK)';
-
-    this.add
+    const subtitle = isVkEnvironment() ? 'VK Games' : 'Режим разработки (вне VK)';
+    const subText = this.add
       .text(w / 2, h * 0.55, subtitle, {
         fontFamily: 'system-ui, sans-serif',
         fontSize: '13px',
         color: '#a0aec0',
       })
       .setOrigin(0.5);
+
+    // Name is optional — never block UI
+    void getUserName().then((name) => {
+      if (name && subText.active) subText.setText(`Привет, ${name}`);
+    });
 
     this.add
       .text(w / 2, h * 0.59, `Рекорд: волна ${meta.bestWave} · ранов ${meta.runs}`, {
@@ -87,12 +79,10 @@ export class MenuScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    // Play
     this.makeButton(w / 2, h * 0.68, 220, 52, 'ИГРАТЬ', COLORS.accent, () => {
       this.scene.start('Game');
     });
 
-    // Meta upgrades
     this.makeButton(w / 2, h * 0.77, 220, 48, 'УСИЛЕНИЯ', 0x3a2a60, () => {
       this.scene.start('Meta');
     });
@@ -135,8 +125,18 @@ export class MenuScene extends Phaser.Scene {
         fontStyle: 'bold',
       })
       .setOrigin(0.5);
-    bg.on('pointerover', () => bg.setFillStyle(Phaser.Display.Color.IntegerToColor(color).brighten(12).color));
+
+    const hover = Phaser.Display.Color.IntegerToColor(color);
+    hover.brighten(20);
+    const hoverColor = hover.color;
+
+    bg.on('pointerover', () => bg.setFillStyle(hoverColor));
     bg.on('pointerout', () => bg.setFillStyle(color));
-    bg.on('pointerdown', onClick);
+    // pointerup is more reliable on touch than pointerdown alone
+    bg.on('pointerup', (p: Phaser.Input.Pointer) => {
+      if (p.leftButtonReleased() || p.wasTouch) {
+        onClick();
+      }
+    });
   }
 }

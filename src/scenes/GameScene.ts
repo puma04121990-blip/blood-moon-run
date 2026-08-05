@@ -14,8 +14,8 @@ import { HUD } from '../ui/HUD';
 import { shareScore, showRewardedAd } from '../vk/bridge';
 import {
   computeRunBonuses,
-  loadMeta,
-  saveMeta,
+  getMetaCached,
+  saveMetaNow,
   type MetaState,
 } from '../meta/progress';
 
@@ -57,12 +57,16 @@ export class GameScene extends Phaser.Scene {
   private overlay?: Phaser.GameObjects.Container;
   private levelUpOpen = false;
   private meta!: MetaState;
+  private ready = false;
 
   constructor() {
     super('Game');
   }
 
-  async create(): Promise<void> {
+  create(): void {
+    // Fully synchronous — Phaser calls update() immediately after create returns.
+    // Async create() previously left player undefined → freeze on «ИГРАТЬ».
+    this.ready = false;
     this.enemies = [];
     this.pickups = [];
     this.wave = 1;
@@ -72,18 +76,23 @@ export class GameScene extends Phaser.Scene {
     this.levelUpOpen = false;
     this.rewardCommitted = false;
 
-    this.meta = await loadMeta();
+    this.meta = {
+      ...getMetaCached(),
+      levels: { ...getMetaCached().levels },
+    };
     const bonuses = computeRunBonuses(this.meta);
 
-    // Arena larger than screen for camera follow feel
     const mapW = GAME_WIDTH * 1.6;
     const mapH = GAME_HEIGHT * 1.4;
-    this.worldBounds = new Phaser.Geom.Rectangle(-mapW / 2 + GAME_WIDTH / 2, -mapH / 2 + GAME_HEIGHT / 2, mapW, mapH);
+    this.worldBounds = new Phaser.Geom.Rectangle(
+      -mapW / 2 + GAME_WIDTH / 2,
+      -mapH / 2 + GAME_HEIGHT / 2,
+      mapW,
+      mapH,
+    );
 
     this.cameras.main.setBackgroundColor(COLORS.bg);
     this.drawGround();
-
-    // Ambient moon
     this.add.circle(GAME_WIDTH * 0.8, 100, 30, COLORS.moon, 0.15).setScrollFactor(0.2).setDepth(0);
 
     this.player = new Player(this, GAME_WIDTH / 2, GAME_HEIGHT / 2, bonuses);
@@ -102,7 +111,30 @@ export class GameScene extends Phaser.Scene {
       () => this.tryHowl(),
     );
 
-    const kb = this.input.keyboard!;
+    this.setupKeyboard();
+    this.startWave(1);
+    this.ready = true;
+  }
+
+  private setupKeyboard(): void {
+    const kb = this.input.keyboard;
+    if (!kb) {
+      // Touch-only: dummy keys that stay "up"
+      const dummy = { isDown: false, on: () => dummy } as unknown as Phaser.Input.Keyboard.Key;
+      this.keys = {
+        w: dummy,
+        a: dummy,
+        s: dummy,
+        d: dummy,
+        up: dummy,
+        left: dummy,
+        down: dummy,
+        right: dummy,
+        space: dummy,
+        t: dummy,
+      };
+      return;
+    }
     this.keys = {
       w: kb.addKey('W'),
       a: kb.addKey('A'),
@@ -115,11 +147,8 @@ export class GameScene extends Phaser.Scene {
       space: kb.addKey('SPACE'),
       t: kb.addKey('T'),
     };
-
     this.keys.space.on('down', () => this.tryHowl());
     this.keys.t.on('down', () => this.tryTransform());
-
-    this.startWave(1);
   }
 
   private drawGround(): void {
@@ -206,6 +235,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
+    if (!this.ready || !this.player) return;
     if (this.gameOver || this.paused || this.levelUpOpen) {
       this.syncHud();
       return;
@@ -502,7 +532,7 @@ export class GameScene extends Phaser.Scene {
 
   private rewardCommitted = false;
 
-  private async commitRunReward(baseShards: number): Promise<number> {
+  private commitRunReward(baseShards: number): number {
     if (this.rewardCommitted) {
       return Math.floor(baseShards * this.player.bonuses.shardGainMul);
     }
@@ -510,7 +540,7 @@ export class GameScene extends Phaser.Scene {
     this.meta.shards += gained;
     this.meta.runs += 1;
     this.meta.bestWave = Math.max(this.meta.bestWave, this.wave);
-    await saveMeta(this.meta);
+    saveMetaNow(this.meta);
     this.rewardCommitted = true;
     return gained;
   }
@@ -519,14 +549,14 @@ export class GameScene extends Phaser.Scene {
     return Math.floor(base * this.player.bonuses.shardGainMul);
   }
 
-  private async endRunTo(scene: 'Menu' | 'Meta' | 'restart', baseShards: number): Promise<void> {
-    await this.commitRunReward(baseShards);
+  private endRunTo(scene: 'Menu' | 'Meta' | 'restart', baseShards: number): void {
+    this.commitRunReward(baseShards);
     this.cleanup();
     if (scene === 'restart') this.scene.restart();
     else this.scene.start(scene);
   }
 
-  private async onDeath(): Promise<void> {
+  private onDeath(): void {
     if (this.gameOver) return;
     this.gameOver = true;
     this.spawnTimer?.remove(false);
@@ -540,39 +570,40 @@ export class GameScene extends Phaser.Scene {
       [
         {
           label: 'Воскреснуть (реклама)',
-          action: async () => {
-            const ok = await showRewardedAd();
-            if (ok) {
-              this.clearOverlay();
-              this.gameOver = false;
-              this.player.hp = Math.floor(this.player.maxHp * 0.5);
-              this.player.invulnUntil = this.time.now + 2000;
-              this.player.skillCharges += 1;
-            }
+          action: () => {
+            void showRewardedAd().then((ok) => {
+              if (ok) {
+                this.clearOverlay();
+                this.gameOver = false;
+                this.player.hp = Math.floor(this.player.maxHp * 0.5);
+                this.player.invulnUntil = this.time.now + 2000;
+                this.player.skillCharges += 1;
+              }
+            });
           },
         },
         {
           label: 'Усиления',
-          action: () => void this.endRunTo('Meta', base),
+          action: () => this.endRunTo('Meta', base),
         },
         {
           label: 'Заново',
-          action: () => void this.endRunTo('restart', base),
+          action: () => this.endRunTo('restart', base),
         },
         {
           label: 'В меню',
-          action: () => void this.endRunTo('Menu', base),
+          action: () => this.endRunTo('Menu', base),
         },
       ],
     );
   }
 
-  private async onVictory(): Promise<void> {
+  private onVictory(): void {
     if (this.gameOver) return;
     this.gameOver = true;
     this.spawnTimer?.remove(false);
     const base = this.player.currency + 50;
-    const gained = await this.commitRunReward(base);
+    const gained = this.commitRunReward(base);
     const msg = `Ночь Оборотня: я пережил ${BALANCE.waveTotal} волн! 🐺🌕`;
 
     this.showOverlay(
@@ -581,7 +612,7 @@ export class GameScene extends Phaser.Scene {
       [
         {
           label: 'Поделиться',
-          action: () => shareScore(msg),
+          action: () => void shareScore(msg),
         },
         {
           label: 'Усиления',

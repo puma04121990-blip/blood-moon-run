@@ -98,6 +98,18 @@ export function defaultMeta(): MetaState {
   return { shards: 0, levels: emptyLevels(), bestWave: 0, runs: 0 };
 }
 
+/** In-memory cache so Phaser scenes can create() synchronously */
+let metaCache: MetaState = defaultMeta();
+let metaLoaded = false;
+
+export function getMetaCached(): MetaState {
+  return metaCache;
+}
+
+export function isMetaLoaded(): boolean {
+  return metaLoaded;
+}
+
 export async function loadMeta(): Promise<MetaState> {
   const raw = await storageGet([STORAGE_KEY, 'shards']);
   let state = defaultMeta();
@@ -122,12 +134,23 @@ export async function loadMeta(): Promise<MetaState> {
     state.shards = Math.max(0, parseInt(raw.shards, 10) || 0);
   }
 
+  metaCache = state;
+  metaLoaded = true;
   return state;
 }
 
 export async function saveMeta(state: MetaState): Promise<void> {
+  metaCache = state;
+  metaLoaded = true;
   await storageSet(STORAGE_KEY, JSON.stringify(state));
   await storageSet('shards', String(state.shards));
+}
+
+/** Sync write to cache + fire-and-forget persist */
+export function saveMetaNow(state: MetaState): void {
+  metaCache = state;
+  metaLoaded = true;
+  void saveMeta(state);
 }
 
 export function getUpgrade(id: MetaUpgradeId): MetaUpgradeDef {
