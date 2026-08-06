@@ -17,15 +17,11 @@ export class MenuScene extends Phaser.Scene {
 
     const meta = getMetaCached();
 
-    // moon
     this.add.circle(w / 2, h * 0.18, 48, COLORS.moon, 0.95);
     this.add.circle(w / 2 + 18, h * 0.16, 40, COLORS.bgDark, 1);
 
     if (this.textures.exists('player')) {
-      this.add
-        .image(w / 2, h * 0.36, 'player')
-        .setDisplaySize(130, 130)
-        .setDepth(5);
+      this.add.image(w / 2, h * 0.36, 'player').setDisplaySize(130, 130).setDepth(5);
     }
 
     this.add
@@ -81,8 +77,10 @@ export class MenuScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.makeButton(w / 2, h * 0.68, 220, 52, 'ИГРАТЬ', COLORS.accent, () => {
+      // CRITICAL: unlock + start music inside the same user gesture (iOS/VK)
       unlockAudio(this);
       SFX.play('ui', this);
+      SFX.startMusic(this);
       this.scene.start('Game');
     });
 
@@ -108,7 +106,7 @@ export class MenuScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    // First touch unlocks + subtle feedback
+    // First touch: unlock only (no music yet)
     this.input.once('pointerdown', () => {
       unlockAudio(this);
       SFX.play('ui', this);
@@ -144,9 +142,7 @@ export class MenuScene extends Phaser.Scene {
     bg.on('pointerover', () => bg.setFillStyle(hoverColor));
     bg.on('pointerout', () => bg.setFillStyle(color));
     bg.on('pointerup', (p: Phaser.Input.Pointer) => {
-      if (p.leftButtonReleased() || p.wasTouch) {
-        onClick();
-      }
+      if (p.leftButtonReleased() || p.wasTouch) onClick();
     });
   }
 }
