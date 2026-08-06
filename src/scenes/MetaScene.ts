@@ -94,13 +94,14 @@ export class MetaScene extends Phaser.Scene {
     const lv = this.state.levels[id] || 0;
     const cost = nextCost(this.state, id);
     const maxed = cost === null;
+    const rowW = Math.min(340, GAME_WIDTH - 20);
 
     const bg = this.add
-      .rectangle(x, y, 350, 64, 0x121a24, 0.95)
+      .rectangle(x, y, rowW, 64, 0x121a24, 0.95)
       .setStrokeStyle(1, maxed ? 0x5cb85c : 0xffffff, maxed ? 0.35 : 0.12);
 
     this.add
-      .text(x - 160, y - 14, def.name, {
+      .text(x - rowW / 2 + 14, y - 14, def.name, {
         fontFamily: 'system-ui, sans-serif',
         fontSize: '15px',
         color: '#e8eef8',
@@ -109,7 +110,7 @@ export class MetaScene extends Phaser.Scene {
       .setOrigin(0, 0.5);
 
     this.add
-      .text(x - 160, y + 8, `${def.desc(Math.max(1, lv))} · ур. ${lv}/${def.maxLevel}`, {
+      .text(x - rowW / 2 + 14, y + 8, `${def.desc(Math.max(1, lv))} · ур. ${lv}/${def.maxLevel}`, {
         fontFamily: 'system-ui, sans-serif',
         fontSize: '11px',
         color: '#8ab4ff',
@@ -119,11 +120,11 @@ export class MetaScene extends Phaser.Scene {
     const btnLabel = maxed ? 'МАКС' : `${cost} ☽`;
     const canBuy = !maxed && this.state.shards >= (cost || 0);
     const btn = this.add
-      .rectangle(x + 130, y, 72, 36, maxed ? 0x1a3a1a : canBuy ? COLORS.accent : 0x333344, 1)
+      .rectangle(x + rowW / 2 - 44, y, 72, 36, maxed ? 0x1a3a1a : canBuy ? COLORS.accent : 0x333344, 1)
       .setStrokeStyle(1, 0xffffff, 0.15);
 
     this.add
-      .text(x + 130, y, btnLabel, {
+      .text(x + rowW / 2 - 44, y, btnLabel, {
         fontFamily: 'system-ui, sans-serif',
         fontSize: '13px',
         color: '#fff',
@@ -146,7 +147,6 @@ export class MetaScene extends Phaser.Scene {
       });
     }
 
-    // silence unused
     void bg;
   }
 

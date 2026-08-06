@@ -1,6 +1,6 @@
-/** Logical design size — portrait mobile (book orientation) */
-export const GAME_WIDTH = 390;
-export const GAME_HEIGHT = 844;
+/** Logical design size — matched to Xiaomi Redmi Note 11 (20:9, 1080×2400) */
+export const GAME_WIDTH = 360;
+export const GAME_HEIGHT = 800;
 
 export const COLORS = {
   bg: 0x1a2332,
