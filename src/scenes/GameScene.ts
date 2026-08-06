@@ -19,16 +19,13 @@ import {
   type MetaState,
 } from '../meta/progress';
 import { unlockAudio } from '../audio/unlock';
+import { SFX } from '../audio/SoundManager';
 
 interface Pickup {
   sprite: Phaser.GameObjects.Image | Phaser.GameObjects.Arc;
   value: number;
 }
 
-/**
- * Vertical slice: joystick move, auto-attack, waves, howl skill,
- * moon transform, level-up, death + continue (rewarded).
- */
 export class GameScene extends Phaser.Scene {
   private player!: Player;
   private joystick!: VirtualJoystick;
@@ -59,14 +56,13 @@ export class GameScene extends Phaser.Scene {
   private levelUpOpen = false;
   private meta!: MetaState;
   private ready = false;
+  private rewardCommitted = false;
 
   constructor() {
     super('Game');
   }
 
   create(): void {
-    // Fully synchronous — Phaser calls update() immediately after create returns.
-    // Async create() previously left player undefined → freeze on «ИГРАТЬ».
     this.ready = false;
     this.enemies = [];
     this.pickups = [];
@@ -77,7 +73,6 @@ export class GameScene extends Phaser.Scene {
     this.levelUpOpen = false;
     this.rewardCommitted = false;
 
-    // Safety unlock if user somehow reached Game without Menu gesture
     unlockAudio(this);
     this.input.once('pointerdown', () => unlockAudio(this));
 
@@ -124,33 +119,18 @@ export class GameScene extends Phaser.Scene {
   private setupKeyboard(): void {
     const kb = this.input.keyboard;
     if (!kb) {
-      // Touch-only: dummy keys that stay "up"
       const dummy = { isDown: false, on: () => dummy } as unknown as Phaser.Input.Keyboard.Key;
       this.keys = {
-        w: dummy,
-        a: dummy,
-        s: dummy,
-        d: dummy,
-        up: dummy,
-        left: dummy,
-        down: dummy,
-        right: dummy,
-        space: dummy,
-        t: dummy,
+        w: dummy, a: dummy, s: dummy, d: dummy,
+        up: dummy, left: dummy, down: dummy, right: dummy,
+        space: dummy, t: dummy,
       };
       return;
     }
     this.keys = {
-      w: kb.addKey('W'),
-      a: kb.addKey('A'),
-      s: kb.addKey('S'),
-      d: kb.addKey('D'),
-      up: kb.addKey('UP'),
-      left: kb.addKey('LEFT'),
-      down: kb.addKey('DOWN'),
-      right: kb.addKey('RIGHT'),
-      space: kb.addKey('SPACE'),
-      t: kb.addKey('T'),
+      w: kb.addKey('W'), a: kb.addKey('A'), s: kb.addKey('S'), d: kb.addKey('D'),
+      up: kb.addKey('UP'), left: kb.addKey('LEFT'), down: kb.addKey('DOWN'), right: kb.addKey('RIGHT'),
+      space: kb.addKey('SPACE'), t: kb.addKey('T'),
     };
     this.keys.space.on('down', () => this.tryHowl());
     this.keys.t.on('down', () => this.tryTransform());
@@ -159,20 +139,13 @@ export class GameScene extends Phaser.Scene {
   private drawGround(): void {
     const g = this.add.graphics().setDepth(0);
     g.fillStyle(COLORS.grass, 1);
-    g.fillRect(
-      this.worldBounds.x,
-      this.worldBounds.y,
-      this.worldBounds.width,
-      this.worldBounds.height,
-    );
-    // subtle dots like reference
+    g.fillRect(this.worldBounds.x, this.worldBounds.y, this.worldBounds.width, this.worldBounds.height);
     g.fillStyle(0x1a2332, 0.35);
     for (let i = 0; i < 180; i++) {
       const x = this.worldBounds.x + Math.random() * this.worldBounds.width;
       const y = this.worldBounds.y + Math.random() * this.worldBounds.height;
       g.fillCircle(x, y, Math.random() * 2 + 0.5);
     }
-    // props
     for (let i = 0; i < 12; i++) {
       const x = this.worldBounds.x + 40 + Math.random() * (this.worldBounds.width - 80);
       const y = this.worldBounds.y + 40 + Math.random() * (this.worldBounds.height - 80);
@@ -197,9 +170,7 @@ export class GameScene extends Phaser.Scene {
         if (spawned >= plan.count) {
           this.spawnTimer?.remove(false);
           this.waveSpawning = false;
-          if (n === BALANCE.waveTotal) {
-            this.spawnEnemy('boss');
-          }
+          if (n === BALANCE.waveTotal) this.spawnEnemy('boss');
           return;
         }
         const kind = plan.kinds[spawned % plan.kinds.length] as EnemyKind;
@@ -215,23 +186,11 @@ export class GameScene extends Phaser.Scene {
     let y = this.player.y;
     const margin = 40;
     switch (edge) {
-      case 0:
-        x = this.worldBounds.left + margin;
-        y = Phaser.Math.Between(this.worldBounds.top, this.worldBounds.bottom);
-        break;
-      case 1:
-        x = this.worldBounds.right - margin;
-        y = Phaser.Math.Between(this.worldBounds.top, this.worldBounds.bottom);
-        break;
-      case 2:
-        y = this.worldBounds.top + margin;
-        x = Phaser.Math.Between(this.worldBounds.left, this.worldBounds.right);
-        break;
-      default:
-        y = this.worldBounds.bottom - margin;
-        x = Phaser.Math.Between(this.worldBounds.left, this.worldBounds.right);
+      case 0: x = this.worldBounds.left + margin; y = Phaser.Math.Between(this.worldBounds.top, this.worldBounds.bottom); break;
+      case 1: x = this.worldBounds.right - margin; y = Phaser.Math.Between(this.worldBounds.top, this.worldBounds.bottom); break;
+      case 2: y = this.worldBounds.top + margin; x = Phaser.Math.Between(this.worldBounds.left, this.worldBounds.right); break;
+      default: y = this.worldBounds.bottom - margin; x = Phaser.Math.Between(this.worldBounds.left, this.worldBounds.right);
     }
-    // keep off player
     if (Phaser.Math.Distance.Between(x, y, this.player.x, this.player.y) < 120) {
       x = this.player.x + (Math.random() > 0.5 ? 180 : -180);
       y = this.player.y + (Math.random() > 0.5 ? 180 : -180);
@@ -250,7 +209,6 @@ export class GameScene extends Phaser.Scene {
     this.elapsed += dt;
     const now = this.time.now;
 
-    // movement
     let mx = this.joystick.vector.x;
     let my = this.joystick.vector.y;
     if (this.keys.a.isDown || this.keys.left.isDown) mx -= 1;
@@ -260,31 +218,32 @@ export class GameScene extends Phaser.Scene {
     this.player.move(mx, my, dt, this.worldBounds);
     this.player.updateTransform(now);
 
-    // auto-attack nearest
     if (this.player.canAttack(now) && this.enemies.length) {
       const range = this.player.transformed ? BALANCE.attackRange * 1.25 : BALANCE.attackRange;
       const t = this.nearestEnemy(range);
       if (t) {
         this.player.markAttack(now);
+        SFX.play('attack', this);
         const dmg = BALANCE.attackDamage * this.player.damageMul;
         const dead = t.takeDamage(dmg);
         this.spawnSlash(t.x, t.y);
         if (dead) this.killEnemy(t);
+        else SFX.play('hit', this);
       }
     }
 
-    // enemies chase + contact damage
     for (const e of this.enemies) {
       if (!e.alive) continue;
       e.chase(this.player.x, this.player.y, dt);
       const dist = Phaser.Math.Distance.Between(e.x, e.y, this.player.x, this.player.y);
       if (dist < e.radius + this.player.radius) {
+        const prevHp = this.player.hp;
         this.player.takeDamage(e.def.damage, now, e.def.isSilver);
+        if (this.player.hp < prevHp) SFX.play('hurt', this);
         e.knockback(this.player.x, this.player.y, 40);
       }
     }
 
-    // pickups
     for (let i = this.pickups.length - 1; i >= 0; i--) {
       const p = this.pickups[i];
       const dist = Phaser.Math.Distance.Between(p.sprite.x, p.sprite.y, this.player.x, this.player.y);
@@ -292,26 +251,20 @@ export class GameScene extends Phaser.Scene {
         this.player.currency += p.value;
         p.sprite.destroy();
         this.pickups.splice(i, 1);
+        SFX.play('pickup', this);
       } else if (dist < 100) {
-        // magnet
         p.sprite.x += (this.player.x - p.sprite.x) * 4 * dt;
         p.sprite.y += (this.player.y - p.sprite.y) * 4 * dt;
       }
     }
 
-    // auto-transform when full moon
     if (this.player.moon >= BALANCE.moonMax) {
-      this.player.tryTransform(now);
+      if (this.player.tryTransform(now)) {
+        SFX.play('transform', this);
+      }
     }
 
-    if (this.player.hp <= 0) {
-      this.onDeath();
-    }
-
-    // wave clear
-    if (!this.waveSpawning && this.enemies.every((e) => !e.alive) && this.enemies.length === 0) {
-      // already cleared via kill path
-    }
+    if (this.player.hp <= 0) this.onDeath();
 
     this.syncHud();
   }
@@ -345,7 +298,8 @@ export class GameScene extends Phaser.Scene {
     const idx = this.enemies.indexOf(e);
     if (idx >= 0) this.enemies.splice(idx, 1);
 
-    // VFX
+    SFX.play('death', this);
+
     const splash = this.add.circle(e.x, e.y, e.radius, 0x9b2a4a, 0.8).setDepth(40);
     this.tweens.add({
       targets: splash,
@@ -355,7 +309,6 @@ export class GameScene extends Phaser.Scene {
       onComplete: () => splash.destroy(),
     });
 
-    // drops
     const drop = this.textures.exists('pickup_moon')
       ? this.add.image(e.x, e.y, 'pickup_moon').setDisplaySize(22, 22).setDepth(20)
       : this.add.circle(e.x, e.y, 6, COLORS.moon, 1).setDepth(20);
@@ -367,19 +320,13 @@ export class GameScene extends Phaser.Scene {
 
     this.waveKillsLeft = Math.max(0, this.waveKillsLeft - 1);
 
-    if (leveled) {
-      this.openLevelUp();
-    }
+    if (leveled) this.openLevelUp();
 
-    // wave progression when all dead and not spawning
     this.time.delayedCall(100, () => {
       if (this.gameOver) return;
       if (!this.waveSpawning && this.enemies.length === 0) {
-        if (this.wave >= BALANCE.waveTotal) {
-          this.onVictory();
-        } else {
-          this.showWaveClear();
-        }
+        if (this.wave >= BALANCE.waveTotal) this.onVictory();
+        else this.showWaveClear();
       }
     });
   }
@@ -388,6 +335,8 @@ export class GameScene extends Phaser.Scene {
     if (this.paused || this.gameOver || this.levelUpOpen) return;
     const now = this.time.now;
     if (!this.player.useSkill(now)) return;
+
+    SFX.play('howl', this);
 
     const ring = this.add
       .circle(this.player.x, this.player.y, 20, COLORS.howl, 0.35)
@@ -414,46 +363,38 @@ export class GameScene extends Phaser.Scene {
 
   private tryTransform(): void {
     if (this.paused || this.gameOver) return;
-    this.player.tryTransform(this.time.now);
+    if (this.player.tryTransform(this.time.now)) {
+      SFX.play('transform', this);
+    }
   }
 
   private openLevelUp(): void {
     if (this.levelUpOpen || this.gameOver) return;
     this.levelUpOpen = true;
-    this.physics?.pause?.();
+    SFX.play('levelup', this);
 
     const cam = this.cameras.main;
     const cx = cam.scrollX + GAME_WIDTH / 2;
     const cy = cam.scrollY + GAME_HEIGHT / 2;
 
     const choices = [
-      { title: 'Острые когти', desc: '+15% урон', apply: () => { /* baked via level */ } },
+      { title: 'Острые когти', desc: '+15% урон', apply: () => {} },
       { title: 'Живучесть', desc: '+25 HP', apply: () => this.player.heal(25) },
       { title: 'Заряд воя', desc: '+2 Вой', apply: () => { this.player.skillCharges += 2; } },
     ];
-    // randomize order
     Phaser.Utils.Array.Shuffle(choices);
 
     const panel = this.add.container(cx, cy).setDepth(2000).setScrollFactor(1);
     panel.add(this.add.rectangle(0, 0, 320, 360, 0x0a0e14, 0.92).setStrokeStyle(2, COLORS.moonGlow));
     panel.add(
-      this.add
-        .text(0, -150, 'УРОВЕНЬ ' + this.player.level, {
-          fontFamily: 'system-ui, sans-serif',
-          fontSize: '20px',
-          color: '#fff',
-          fontStyle: 'bold',
-        })
-        .setOrigin(0.5),
+      this.add.text(0, -150, 'УРОВЕНЬ ' + this.player.level, {
+        fontFamily: 'system-ui, sans-serif', fontSize: '20px', color: '#fff', fontStyle: 'bold',
+      }).setOrigin(0.5),
     );
     panel.add(
-      this.add
-        .text(0, -120, 'Выбери усиление', {
-          fontFamily: 'system-ui, sans-serif',
-          fontSize: '13px',
-          color: '#a0aec0',
-        })
-        .setOrigin(0.5),
+      this.add.text(0, -120, 'Выбери усиление', {
+        fontFamily: 'system-ui, sans-serif', fontSize: '13px', color: '#a0aec0',
+      }).setOrigin(0.5),
     );
 
     choices.forEach((c, i) => {
@@ -462,23 +403,15 @@ export class GameScene extends Phaser.Scene {
         .rectangle(0, y, 260, 64, 0x1a2838, 1)
         .setStrokeStyle(1, 0xffffff, 0.2)
         .setInteractive({ useHandCursor: true });
-      const t = this.add
-        .text(0, y - 10, c.title, {
-          fontFamily: 'system-ui, sans-serif',
-          fontSize: '16px',
-          color: '#e8eef8',
-          fontStyle: 'bold',
-        })
-        .setOrigin(0.5);
-      const d = this.add
-        .text(0, y + 12, c.desc, {
-          fontFamily: 'system-ui, sans-serif',
-          fontSize: '12px',
-          color: '#8ab4ff',
-        })
-        .setOrigin(0.5);
+      const t = this.add.text(0, y - 10, c.title, {
+        fontFamily: 'system-ui, sans-serif', fontSize: '16px', color: '#e8eef8', fontStyle: 'bold',
+      }).setOrigin(0.5);
+      const d = this.add.text(0, y + 12, c.desc, {
+        fontFamily: 'system-ui, sans-serif', fontSize: '12px', color: '#8ab4ff',
+      }).setOrigin(0.5);
       panel.add([btn, t, d]);
       btn.on('pointerdown', () => {
+        SFX.play('ui', this);
         c.apply();
         panel.destroy(true);
         this.levelUpOpen = false;
@@ -487,13 +420,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   private showWaveClear(): void {
+    SFX.play('wave', this);
     const cam = this.cameras.main;
     const t = this.add
       .text(cam.scrollX + GAME_WIDTH / 2, cam.scrollY + GAME_HEIGHT / 2, `Ночь ${this.wave} пережита`, {
-        fontFamily: 'system-ui, sans-serif',
-        fontSize: '22px',
-        color: '#d4e4ff',
-        fontStyle: 'bold',
+        fontFamily: 'system-ui, sans-serif', fontSize: '22px', color: '#d4e4ff', fontStyle: 'bold',
       })
       .setOrigin(0.5)
       .setDepth(1500)
@@ -515,27 +446,22 @@ export class GameScene extends Phaser.Scene {
   private togglePause(): void {
     if (this.gameOver || this.levelUpOpen) return;
     this.paused = !this.paused;
+    SFX.play('ui', this);
     if (this.paused) {
-      this.showOverlay(
-        'ПАУЗА',
-        'Продолжить · В меню',
-        [
-          { label: 'Продолжить', action: () => { this.paused = false; this.clearOverlay(); } },
-          {
-            label: 'В меню',
-            action: () => {
-              this.cleanup();
-              this.scene.start('Menu');
-            },
+      this.showOverlay('ПАУЗА', 'Продолжить · В меню', [
+        { label: 'Продолжить', action: () => { this.paused = false; this.clearOverlay(); } },
+        {
+          label: 'В меню',
+          action: () => {
+            this.cleanup();
+            this.scene.start('Menu');
           },
-        ],
-      );
+        },
+      ]);
     } else {
       this.clearOverlay();
     }
   }
-
-  private rewardCommitted = false;
 
   private commitRunReward(baseShards: number): number {
     if (this.rewardCommitted) {
@@ -587,18 +513,9 @@ export class GameScene extends Phaser.Scene {
             });
           },
         },
-        {
-          label: 'Усиления',
-          action: () => this.endRunTo('Meta', base),
-        },
-        {
-          label: 'Заново',
-          action: () => this.endRunTo('restart', base),
-        },
-        {
-          label: 'В меню',
-          action: () => this.endRunTo('Menu', base),
-        },
+        { label: 'Усиления', action: () => this.endRunTo('Meta', base) },
+        { label: 'Заново', action: () => this.endRunTo('restart', base) },
+        { label: 'В меню', action: () => this.endRunTo('Menu', base) },
       ],
     );
   }
@@ -615,10 +532,7 @@ export class GameScene extends Phaser.Scene {
       'РАССВЕТ',
       `Ты выжил! +${gained} осколков (всего ${this.meta.shards})`,
       [
-        {
-          label: 'Поделиться',
-          action: () => void shareScore(msg),
-        },
+        { label: 'Поделиться', action: () => void shareScore(msg) },
         {
           label: 'Усиления',
           action: () => {
@@ -656,25 +570,15 @@ export class GameScene extends Phaser.Scene {
     const root = this.add.container(cx, cy).setDepth(3000);
     root.add(this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.65));
     root.add(
-      this.add
-        .text(0, -120, title, {
-          fontFamily: 'system-ui, sans-serif',
-          fontSize: '28px',
-          color: '#fff',
-          fontStyle: 'bold',
-        })
-        .setOrigin(0.5),
+      this.add.text(0, -120, title, {
+        fontFamily: 'system-ui, sans-serif', fontSize: '28px', color: '#fff', fontStyle: 'bold',
+      }).setOrigin(0.5),
     );
     root.add(
-      this.add
-        .text(0, -70, subtitle, {
-          fontFamily: 'system-ui, sans-serif',
-          fontSize: '14px',
-          color: '#a0aec0',
-          align: 'center',
-          wordWrap: { width: 300 },
-        })
-        .setOrigin(0.5),
+      this.add.text(0, -70, subtitle, {
+        fontFamily: 'system-ui, sans-serif', fontSize: '14px', color: '#a0aec0', align: 'center',
+        wordWrap: { width: 300 },
+      }).setOrigin(0.5),
     );
 
     buttons.forEach((b, i) => {
@@ -683,15 +587,14 @@ export class GameScene extends Phaser.Scene {
         .rectangle(0, y, 240, 44, i === 0 ? COLORS.accent : 0x1a2838, 1)
         .setStrokeStyle(1, 0xffffff, 0.2)
         .setInteractive({ useHandCursor: true });
-      const t = this.add
-        .text(0, y, b.label, {
-          fontFamily: 'system-ui, sans-serif',
-          fontSize: '15px',
-          color: '#fff',
-        })
-        .setOrigin(0.5);
+      const t = this.add.text(0, y, b.label, {
+        fontFamily: 'system-ui, sans-serif', fontSize: '15px', color: '#fff',
+      }).setOrigin(0.5);
       root.add([bg, t]);
-      bg.on('pointerdown', () => void b.action());
+      bg.on('pointerdown', () => {
+        SFX.play('ui', this);
+        void b.action();
+      });
     });
 
     this.overlay = root;

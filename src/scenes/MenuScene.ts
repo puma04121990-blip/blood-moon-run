@@ -3,6 +3,7 @@ import { COLORS, GAME_HEIGHT, GAME_WIDTH } from '../game/config';
 import { getUserName, isVkEnvironment } from '../vk/bridge';
 import { getMetaCached } from '../meta/progress';
 import { unlockAudio } from '../audio/unlock';
+import { SFX } from '../audio/SoundManager';
 
 export class MenuScene extends Phaser.Scene {
   constructor() {
@@ -67,7 +68,6 @@ export class MenuScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    // Name is optional — never block UI
     void getUserName().then((name) => {
       if (name && subText.active) subText.setText(`Привет, ${name}`);
     });
@@ -81,12 +81,14 @@ export class MenuScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.makeButton(w / 2, h * 0.68, 220, 52, 'ИГРАТЬ', COLORS.accent, () => {
-      unlockAudio(this); // critical: unlock inside user gesture
+      unlockAudio(this);
+      SFX.play('ui', this);
       this.scene.start('Game');
     });
 
     this.makeButton(w / 2, h * 0.77, 220, 48, 'УСИЛЕНИЯ', 0x3a2a60, () => {
       unlockAudio(this);
+      SFX.play('ui', this);
       this.scene.start('Meta');
     });
 
@@ -106,8 +108,11 @@ export class MenuScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    // Extra safety: any first touch on the menu also unlocks
-    this.input.once('pointerdown', () => unlockAudio(this));
+    // First touch unlocks + subtle feedback
+    this.input.once('pointerdown', () => {
+      unlockAudio(this);
+      SFX.play('ui', this);
+    });
   }
 
   private makeButton(
@@ -138,7 +143,6 @@ export class MenuScene extends Phaser.Scene {
 
     bg.on('pointerover', () => bg.setFillStyle(hoverColor));
     bg.on('pointerout', () => bg.setFillStyle(color));
-    // pointerup is more reliable on touch than pointerdown alone
     bg.on('pointerup', (p: Phaser.Input.Pointer) => {
       if (p.leftButtonReleased() || p.wasTouch) {
         onClick();
