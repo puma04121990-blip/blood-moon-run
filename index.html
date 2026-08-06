@@ -14,7 +14,6 @@
     <link rel="icon" type="image/png" href="./icon-192.png" />
     <title>Ночь Оборотня — Blood Moon Run</title>
     <style>
-      /* Full-bleed canvas on any phone; safe-areas handled inside Phaser HUD */
       *,
       *::before,
       *::after {
@@ -27,7 +26,6 @@
         margin: 0;
         padding: 0;
         background: #0a0e14;
-        /* Lock to visual viewport */
         overflow: hidden;
       }
 
@@ -36,7 +34,6 @@
         padding: 0;
         width: 100%;
         height: 100%;
-        /* dvh = dynamic viewport (accounts for mobile browser chrome) */
         height: 100dvh;
         max-height: 100dvh;
         overflow: hidden;
@@ -57,17 +54,13 @@
         height: 100%;
         margin: 0;
         padding: 0;
-        overflow: hidden;
+        overflow: hidden; /* crop ENVELOP overflow — no visible bars */
         background: #0a0e14;
-        /* Phaser centers canvas inside this */
-        display: block;
       }
 
       #game-container canvas {
         display: block;
-        margin: 0 auto;
-        /* Let Phaser control size — do NOT constrain with max-width */
-        image-rendering: auto;
+        /* Phaser positions/sizes the canvas; do not constrain */
       }
     </style>
   </head>
