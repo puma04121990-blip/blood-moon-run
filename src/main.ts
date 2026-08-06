@@ -12,9 +12,10 @@ const config: Phaser.Types.Core.GameConfig = {
   width: GAME_WIDTH,
   height: GAME_HEIGHT,
   scale: {
-    // ENVELOP = cover entire parent (no side bars). Uniform scale, may crop top/bottom slightly.
-    // Does NOT stretch sprites.
-    mode: Phaser.Scale.ENVELOP,
+    // FIT = always show FULL game (menu, HUD, buttons). No crop.
+    // Uniform scale — sprites never stretch.
+    // Letterbox bars match backgroundColor so they blend on mobile.
+    mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
     width: GAME_WIDTH,
     height: GAME_HEIGHT,
@@ -37,7 +38,6 @@ const config: Phaser.Types.Core.GameConfig = {
   },
 };
 
-// Prevent pull-to-refresh / overscroll on mobile
 document.addEventListener(
   'touchmove',
   (e) => {
@@ -46,21 +46,23 @@ document.addEventListener(
   { passive: false },
 );
 
-// Block pinch-zoom gestures
 document.addEventListener('gesturestart', (e) => e.preventDefault());
 
 const game = new Phaser.Game(config);
 
-/** Refresh scale when mobile browser chrome shows/hides or orientation changes */
 function refreshScale(): void {
   try {
-    // Prefer visualViewport size when available (more accurate with browser chrome)
-    const w = window.visualViewport?.width ?? window.innerWidth;
-    const h = window.visualViewport?.height ?? window.innerHeight;
-    game.scale.parentSize.setSize(w, h);
+    const parent = document.getElementById('game-container');
+    if (parent) {
+      game.scale.parentSize.setSize(parent.clientWidth, parent.clientHeight);
+    } else {
+      const w = window.visualViewport?.width ?? window.innerWidth;
+      const h = window.visualViewport?.height ?? window.innerHeight;
+      game.scale.parentSize.setSize(w, h);
+    }
     game.scale.refresh();
   } catch {
-    /* game not ready */
+    /* not ready */
   }
 }
 
@@ -72,7 +74,6 @@ window.addEventListener('orientationchange', () => {
 
 if (window.visualViewport) {
   window.visualViewport.addEventListener('resize', refreshScale);
-  window.visualViewport.addEventListener('scroll', refreshScale);
 }
 
 requestAnimationFrame(() => {

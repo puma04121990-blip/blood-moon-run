@@ -1,4 +1,8 @@
-/** Logical design size — matched to Xiaomi Redmi Note 11 (20:9, 1080×2400) */
+/**
+ * Logical design size — portrait mobile 20:9
+ * (Xiaomi Redmi Note 11 = 1080×2400).
+ * Phaser Scale.FIT keeps this aspect on every device without stretching.
+ */
 export const GAME_WIDTH = 360;
 export const GAME_HEIGHT = 800;
 
