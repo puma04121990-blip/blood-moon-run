@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { BALANCE, COLORS, GAME_WIDTH } from '../game/config';
+import { getSafeArea } from '../vk/bridge';
 
 export interface HudState {
   hp: number;
@@ -18,9 +19,7 @@ export interface HudState {
 }
 
 /**
- * Portrait HUD matching reference layout (Pickle Pete style):
- * top: pause, HP, XP/level, currency, wave, timer
- * bottom-left: skill charges
+ * Portrait HUD — positions account for safe-area insets (notch / home bar).
  */
 export class HUD {
   private scene: Phaser.Scene;
@@ -38,6 +37,8 @@ export class HUD {
   private pauseBtn: Phaser.GameObjects.Container;
   private onPause: () => void;
   private onSkill: () => void;
+  private safeTop = 0;
+  private safeBottom = 0;
 
   constructor(scene: Phaser.Scene, onPause: () => void, onSkill: () => void) {
     this.scene = scene;
@@ -45,19 +46,47 @@ export class HUD {
     this.onSkill = onSkill;
     this.root = scene.add.container(0, 0).setScrollFactor(0).setDepth(900);
 
+    const insets = getSafeArea();
+    this.safeTop = Math.max(0, insets.top || 0);
+    this.safeBottom = Math.max(0, insets.bottom || 0);
+    // CSS env() fallback if bridge returned zeros (outside VK)
+    if (this.safeTop === 0 && this.safeBottom === 0) {
+      try {
+        const probe = document.createElement('div');
+        probe.style.paddingTop = 'env(safe-area-inset-top, 0px)';
+        probe.style.paddingBottom = 'env(safe-area-inset-bottom, 0px)';
+        probe.style.position = 'fixed';
+        probe.style.visibility = 'hidden';
+        document.body.appendChild(probe);
+        const cs = getComputedStyle(probe);
+        this.safeTop = parseFloat(cs.paddingTop) || 0;
+        this.safeBottom = parseFloat(cs.paddingBottom) || 0;
+        document.body.removeChild(probe);
+      } catch {
+        /* ignore */
+      }
+    }
+
+    // Convert CSS px → game units (approximate via scale)
+    const scaleY = scene.scale.displaySize.height / scene.scale.gameSize.height || 1;
+    const topPad = this.safeTop / Math.max(0.01, scaleY);
+    const bottomPad = this.safeBottom / Math.max(0.01, scaleY);
+
+    const topY = 28 + Math.min(topPad, 48);
+
     // Pause
-    this.pauseBtn = this.makeCircleButton(28, 36, 'Ⅱ', () => this.onPause());
+    this.pauseBtn = this.makeCircleButton(28, topY + 8, 'Ⅱ', () => this.onPause());
     this.root.add(this.pauseBtn);
 
-    // HP bar background
+    // HP bar
     const barX = 56;
-    const barY = 28;
+    const barY = topY;
     const hpW = 140;
     this.root.add(scene.add.rectangle(barX + hpW / 2, barY, hpW, 14, 0x222222, 0.85).setOrigin(0.5));
     this.hpBar = scene.add.rectangle(barX, barY, hpW, 14, COLORS.hp, 1).setOrigin(0, 0.5);
     this.root.add(this.hpBar);
 
-    // Level badge + XP
+    // Level + XP
     const xpX = barX + hpW + 8;
     this.levelText = scene.add
       .text(xpX + 12, barY, '1', {
@@ -76,9 +105,9 @@ export class HUD {
     this.root.add(this.xpBar);
 
     // Currency
-    this.root.add(scene.add.circle(28, 64, 8, COLORS.moon, 1));
+    this.root.add(scene.add.circle(28, topY + 36, 8, COLORS.moon, 1));
     this.currencyText = scene.add
-      .text(42, 64, '0', {
+      .text(42, topY + 36, '0', {
         fontFamily: 'system-ui, sans-serif',
         fontSize: '14px',
         color: '#e8c547',
@@ -87,11 +116,14 @@ export class HUD {
       .setOrigin(0, 0.5);
     this.root.add(this.currencyText);
 
-    // Wave + timer (center top)
-    const panel = scene.add.rectangle(GAME_WIDTH / 2, 52, 120, 40, COLORS.uiPanel, 0.75).setStrokeStyle(1, 0xffffff, 0.15);
+    // Wave + timer
+    const panelY = topY + 24;
+    const panel = scene.add
+      .rectangle(GAME_WIDTH / 2, panelY, 120, 40, COLORS.uiPanel, 0.75)
+      .setStrokeStyle(1, 0xffffff, 0.15);
     this.root.add(panel);
     this.waveText = scene.add
-      .text(GAME_WIDTH / 2, 42, 'ВОЛНА 1/10', {
+      .text(GAME_WIDTH / 2, panelY - 10, 'ВОЛНА 1/10', {
         fontFamily: 'system-ui, sans-serif',
         fontSize: '13px',
         color: '#e8eef8',
@@ -99,7 +131,7 @@ export class HUD {
       })
       .setOrigin(0.5);
     this.timerText = scene.add
-      .text(GAME_WIDTH / 2, 60, '00:00', {
+      .text(GAME_WIDTH / 2, panelY + 8, '00:00', {
         fontFamily: 'system-ui, sans-serif',
         fontSize: '12px',
         color: '#a0aec0',
@@ -108,8 +140,8 @@ export class HUD {
     this.root.add(this.waveText);
     this.root.add(this.timerText);
 
-    // Moon bar (beast meter)
-    const moonY = 88;
+    // Moon bar
+    const moonY = panelY + 40;
     this.root.add(
       scene.add
         .text(GAME_WIDTH / 2, moonY - 12, 'ЛУНА', {
@@ -131,8 +163,8 @@ export class HUD {
       .setOrigin(0.5);
     this.root.add(this.transformHint);
 
-    // Skill button bottom-left
-    this.skillBtn = scene.add.container(48, scene.scale.height - 100);
+    // Skill button bottom-left (above home indicator)
+    this.skillBtn = scene.add.container(48, 0);
     const skillBg = scene.add.circle(0, 0, 36, 0x2a1a40, 0.9).setStrokeStyle(3, COLORS.howl, 0.9);
     this.skillText = scene.add
       .text(0, 0, '3', {
@@ -149,7 +181,6 @@ export class HUD {
         color: '#c9b0ff',
       })
       .setOrigin(0.5);
-    // howl icon
     const fang = scene.add.triangle(-14, -8, 0, 12, 10, 0, 0, 0, COLORS.howl, 0.9);
     this.skillBtn.add([skillBg, fang, this.skillText, skillLabel]);
     this.skillBtn.setScrollFactor(0).setDepth(1002);
@@ -161,7 +192,9 @@ export class HUD {
     });
     this.root.add(this.skillBtn);
 
-    // Keep skill at bottom on resize
+    // Store bottom pad for layout
+    (this as unknown as { _bottomPad: number })._bottomPad = Math.min(bottomPad, 40);
+
     scene.scale.on('resize', this.layout, this);
     this.layout();
   }
@@ -187,7 +220,9 @@ export class HUD {
 
   private layout = (): void => {
     const h = this.scene.scale.height;
-    this.skillBtn.setPosition(48, h - 100);
+    const bottomPad = (this as unknown as { _bottomPad?: number })._bottomPad || 0;
+    // Skill above joystick + home bar
+    this.skillBtn.setPosition(48, h - 100 - bottomPad);
   };
 
   update(state: HudState): void {

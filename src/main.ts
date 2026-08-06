@@ -12,10 +12,14 @@ const config: Phaser.Types.Core.GameConfig = {
   width: GAME_WIDTH,
   height: GAME_HEIGHT,
   scale: {
+    // FIT = keep aspect, fill as much of parent as possible (letterbox if needed)
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
     width: GAME_WIDTH,
     height: GAME_HEIGHT,
+    // React to parent size changes (rotate, browser chrome show/hide)
+    expandParent: false,
+    autoRound: true,
   },
   input: {
     activePointers: 3,
@@ -30,10 +34,11 @@ const config: Phaser.Types.Core.GameConfig = {
     antialias: true,
     pixelArt: false,
     roundPixels: true,
+    powerPreference: 'high-performance',
   },
 };
 
-// Prevent pull-to-refresh / browser gestures on mobile
+// Prevent pull-to-refresh / overscroll on mobile
 document.addEventListener(
   'touchmove',
   (e) => {
@@ -42,5 +47,39 @@ document.addEventListener(
   { passive: false },
 );
 
-// eslint-disable-next-line no-new
-new Phaser.Game(config);
+// Block pinch-zoom gestures
+document.addEventListener('gesturestart', (e) => e.preventDefault());
+
+const game = new Phaser.Game(config);
+
+/** Refresh scale when mobile browser chrome shows/hides or orientation changes */
+function refreshScale(): void {
+  try {
+    game.scale.parentSize.setSize(
+      window.innerWidth,
+      window.innerHeight,
+    );
+    game.scale.refresh();
+  } catch {
+    /* game not ready */
+  }
+}
+
+window.addEventListener('resize', refreshScale);
+window.addEventListener('orientationchange', () => {
+  // Delay — browsers report wrong size mid-rotation
+  setTimeout(refreshScale, 150);
+  setTimeout(refreshScale, 400);
+});
+
+// Android Chrome URL bar show/hide
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', refreshScale);
+  window.visualViewport.addEventListener('scroll', refreshScale);
+}
+
+// First paint after fonts/layout
+requestAnimationFrame(() => {
+  refreshScale();
+  setTimeout(refreshScale, 100);
+});
