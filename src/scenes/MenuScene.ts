@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { COLORS, GAME_HEIGHT, GAME_WIDTH } from '../game/config';
+import { COLORS } from '../game/config';
 import { getUserName, isVkEnvironment } from '../vk/bridge';
 import { getMetaCached } from '../meta/progress';
 import { unlockAudio } from '../audio/unlock';
@@ -11,21 +11,22 @@ export class MenuScene extends Phaser.Scene {
   }
 
   create(): void {
-    const w = GAME_WIDTH;
-    const h = GAME_HEIGHT;
+    const w = this.scale.width;
+    const h = this.scale.height;
     this.cameras.main.setBackgroundColor(COLORS.bgDark);
 
     const meta = getMetaCached();
 
+    // Moon decoration
     this.add.circle(w / 2, h * 0.18, 48, COLORS.moon, 0.95);
     this.add.circle(w / 2 + 18, h * 0.16, 40, COLORS.bgDark, 1);
 
     if (this.textures.exists('player')) {
-      this.add.image(w / 2, h * 0.36, 'player').setDisplaySize(130, 130).setDepth(5);
+      this.add.image(w / 2, h * 0.34, 'player').setDisplaySize(130, 130).setDepth(5);
     }
 
     this.add
-      .text(w / 2, h * 0.1, 'НОЧЬ ОБОРОТНЯ', {
+      .text(w / 2, h * 0.08, 'НОЧЬ ОБОРОТНЯ', {
         fontFamily: 'system-ui, sans-serif',
         fontSize: '28px',
         color: '#f0f4ff',
@@ -34,7 +35,7 @@ export class MenuScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.add
-      .text(w / 2, h * 0.14, 'Blood Moon Run', {
+      .text(w / 2, h * 0.125, 'Blood Moon Run', {
         fontFamily: 'system-ui, sans-serif',
         fontSize: '14px',
         color: '#8ab4ff',
@@ -42,12 +43,12 @@ export class MenuScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     if (this.textures.exists('pickup_moon')) {
-      this.add.image(w / 2 - 28, h * 0.5, 'pickup_moon').setDisplaySize(22, 22);
+      this.add.image(w / 2 - 28, h * 0.48, 'pickup_moon').setDisplaySize(22, 22);
     } else {
-      this.add.circle(w / 2 - 28, h * 0.5, 8, COLORS.moon);
+      this.add.circle(w / 2 - 28, h * 0.48, 8, COLORS.moon);
     }
     this.add
-      .text(w / 2 - 12, h * 0.5, String(meta.shards), {
+      .text(w / 2 - 12, h * 0.48, String(meta.shards), {
         fontFamily: 'system-ui, sans-serif',
         fontSize: '18px',
         color: '#e8c547',
@@ -57,7 +58,7 @@ export class MenuScene extends Phaser.Scene {
 
     const subtitle = isVkEnvironment() ? 'VK Games' : 'Режим разработки (вне VK)';
     const subText = this.add
-      .text(w / 2, h * 0.55, subtitle, {
+      .text(w / 2, h * 0.54, subtitle, {
         fontFamily: 'system-ui, sans-serif',
         fontSize: '13px',
         color: '#a0aec0',
@@ -69,22 +70,21 @@ export class MenuScene extends Phaser.Scene {
     });
 
     this.add
-      .text(w / 2, h * 0.59, `Рекорд: волна ${meta.bestWave} · ранов ${meta.runs}`, {
+      .text(w / 2, h * 0.58, `Рекорд: волна ${meta.bestWave} · ранов ${meta.runs}`, {
         fontFamily: 'system-ui, sans-serif',
         fontSize: '12px',
         color: '#667788',
       })
       .setOrigin(0.5);
 
-    this.makeButton(w / 2, h * 0.68, 220, 52, 'ИГРАТЬ', COLORS.accent, () => {
-      // CRITICAL: unlock + start music inside the same user gesture (iOS/VK)
+    this.makeButton(w / 2, h * 0.68, Math.min(240, w - 40), 52, 'ИГРАТЬ', COLORS.accent, () => {
       unlockAudio(this);
       SFX.play('ui', this);
       SFX.startMusic(this);
       this.scene.start('Game');
     });
 
-    this.makeButton(w / 2, h * 0.77, 220, 48, 'УСИЛЕНИЯ', 0x3a2a60, () => {
+    this.makeButton(w / 2, h * 0.78, Math.min(240, w - 40), 48, 'УСИЛЕНИЯ', 0x3a2a60, () => {
       unlockAudio(this);
       SFX.play('ui', this);
       this.scene.start('Meta');
@@ -99,14 +99,13 @@ export class MenuScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.add
-      .text(w / 2, h * 0.95, 'docs/PLAN.md · VK Mini Apps', {
+      .text(w / 2, h * 0.95, 'VK Mini Apps', {
         fontFamily: 'system-ui, sans-serif',
         fontSize: '10px',
         color: '#445566',
       })
       .setOrigin(0.5);
 
-    // First touch: unlock only (no music yet)
     this.input.once('pointerdown', () => {
       unlockAudio(this);
       SFX.play('ui', this);

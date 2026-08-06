@@ -2,8 +2,6 @@ import Phaser from 'phaser';
 import {
   BALANCE,
   COLORS,
-  GAME_HEIGHT,
-  GAME_WIDTH,
   getWavePlan,
   type EnemyKind,
 } from '../game/config';
@@ -62,6 +60,14 @@ export class GameScene extends Phaser.Scene {
     super('Game');
   }
 
+  /** Real viewport size (RESIZE mode) */
+  private get W(): number {
+    return this.scale.width;
+  }
+  private get H(): number {
+    return this.scale.height;
+  }
+
   create(): void {
     this.ready = false;
     this.enemies = [];
@@ -75,8 +81,6 @@ export class GameScene extends Phaser.Scene {
 
     unlockAudio(this);
     this.input.once('pointerdown', () => unlockAudio(this));
-
-    // Atmospheric night music
     SFX.startMusic(this);
 
     this.meta = {
@@ -85,20 +89,22 @@ export class GameScene extends Phaser.Scene {
     };
     const bonuses = computeRunBonuses(this.meta);
 
-    const mapW = GAME_WIDTH * 1.6;
-    const mapH = GAME_HEIGHT * 1.4;
+    const w = this.W;
+    const h = this.H;
+    const mapW = w * 1.6;
+    const mapH = h * 1.4;
     this.worldBounds = new Phaser.Geom.Rectangle(
-      -mapW / 2 + GAME_WIDTH / 2,
-      -mapH / 2 + GAME_HEIGHT / 2,
+      -mapW / 2 + w / 2,
+      -mapH / 2 + h / 2,
       mapW,
       mapH,
     );
 
     this.cameras.main.setBackgroundColor(COLORS.bg);
     this.drawGround();
-    this.add.circle(GAME_WIDTH * 0.8, 100, 30, COLORS.moon, 0.15).setScrollFactor(0.2).setDepth(0);
+    this.add.circle(w * 0.8, 100, 30, COLORS.moon, 0.15).setScrollFactor(0.2).setDepth(0);
 
-    this.player = new Player(this, GAME_WIDTH / 2, GAME_HEIGHT / 2, bonuses);
+    this.player = new Player(this, w / 2, h / 2, bonuses);
     this.cameras.main.startFollow(this.player.sprite, true, 0.08, 0.08);
     this.cameras.main.setBounds(
       this.worldBounds.x,
@@ -107,7 +113,7 @@ export class GameScene extends Phaser.Scene {
       this.worldBounds.height,
     );
 
-    this.joystick = new VirtualJoystick(this, GAME_WIDTH / 2, GAME_HEIGHT - 90, 56);
+    this.joystick = new VirtualJoystick(this, w / 2, h - 90, 56);
     this.hud = new HUD(
       this,
       () => this.togglePause(),
@@ -268,7 +274,6 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (this.player.hp <= 0) this.onDeath();
-
     this.syncHud();
   }
 
@@ -377,18 +382,18 @@ export class GameScene extends Phaser.Scene {
     SFX.play('levelup', this);
 
     const cam = this.cameras.main;
-    const cx = cam.scrollX + GAME_WIDTH / 2;
-    const cy = cam.scrollY + GAME_HEIGHT / 2;
+    const cx = cam.scrollX + this.W / 2;
+    const cy = cam.scrollY + this.H / 2;
 
     const choices = [
-      { title: 'Острые когти', desc: '+15% урон', apply: () => {} },
+      { title: 'Острые когти', desc: '+15% урон', apply: () => { this.player.damageMul *= 1.15; } },
       { title: 'Живучесть', desc: '+25 HP', apply: () => this.player.heal(25) },
       { title: 'Заряд воя', desc: '+2 Вой', apply: () => { this.player.skillCharges += 2; } },
     ];
     Phaser.Utils.Array.Shuffle(choices);
 
     const panel = this.add.container(cx, cy).setDepth(2000).setScrollFactor(1);
-    panel.add(this.add.rectangle(0, 0, 320, 360, 0x0a0e14, 0.92).setStrokeStyle(2, COLORS.moonGlow));
+    panel.add(this.add.rectangle(0, 0, Math.min(320, this.W - 40), 360, 0x0a0e14, 0.92).setStrokeStyle(2, COLORS.moonGlow));
     panel.add(
       this.add.text(0, -150, 'УРОВЕНЬ ' + this.player.level, {
         fontFamily: 'system-ui, sans-serif', fontSize: '20px', color: '#fff', fontStyle: 'bold',
@@ -403,7 +408,7 @@ export class GameScene extends Phaser.Scene {
     choices.forEach((c, i) => {
       const y = -60 + i * 80;
       const btn = this.add
-        .rectangle(0, y, 260, 64, 0x1a2838, 1)
+        .rectangle(0, y, Math.min(260, this.W - 80), 64, 0x1a2838, 1)
         .setStrokeStyle(1, 0xffffff, 0.2)
         .setInteractive({ useHandCursor: true });
       const t = this.add.text(0, y - 10, c.title, {
@@ -426,7 +431,7 @@ export class GameScene extends Phaser.Scene {
     SFX.play('wave', this);
     const cam = this.cameras.main;
     const t = this.add
-      .text(cam.scrollX + GAME_WIDTH / 2, cam.scrollY + GAME_HEIGHT / 2, `Ночь ${this.wave} пережита`, {
+      .text(cam.scrollX + this.W / 2, cam.scrollY + this.H / 2, `Ночь ${this.wave} пережита`, {
         fontFamily: 'system-ui, sans-serif', fontSize: '22px', color: '#d4e4ff', fontStyle: 'bold',
       })
       .setOrigin(0.5)
@@ -578,10 +583,10 @@ export class GameScene extends Phaser.Scene {
   ): void {
     this.clearOverlay();
     const cam = this.cameras.main;
-    const cx = cam.scrollX + GAME_WIDTH / 2;
-    const cy = cam.scrollY + GAME_HEIGHT / 2;
+    const cx = cam.scrollX + this.W / 2;
+    const cy = cam.scrollY + this.H / 2;
     const root = this.add.container(cx, cy).setDepth(3000);
-    root.add(this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.65));
+    root.add(this.add.rectangle(0, 0, this.W, this.H, 0x000000, 0.65));
     root.add(
       this.add.text(0, -120, title, {
         fontFamily: 'system-ui, sans-serif', fontSize: '28px', color: '#fff', fontStyle: 'bold',
@@ -590,14 +595,14 @@ export class GameScene extends Phaser.Scene {
     root.add(
       this.add.text(0, -70, subtitle, {
         fontFamily: 'system-ui, sans-serif', fontSize: '14px', color: '#a0aec0', align: 'center',
-        wordWrap: { width: 300 },
+        wordWrap: { width: Math.min(300, this.W - 40) },
       }).setOrigin(0.5),
     );
 
     buttons.forEach((b, i) => {
       const y = -10 + i * 56;
       const bg = this.add
-        .rectangle(0, y, 240, 44, i === 0 ? COLORS.accent : 0x1a2838, 1)
+        .rectangle(0, y, Math.min(240, this.W - 40), 44, i === 0 ? COLORS.accent : 0x1a2838, 1)
         .setStrokeStyle(1, 0xffffff, 0.2)
         .setInteractive({ useHandCursor: true });
       const t = this.add.text(0, y, b.label, {

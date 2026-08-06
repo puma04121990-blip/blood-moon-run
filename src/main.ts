@@ -1,24 +1,25 @@
 import Phaser from 'phaser';
-import { GAME_HEIGHT, GAME_WIDTH } from './game/config';
 import { BootScene } from './scenes/BootScene';
 import { MenuScene } from './scenes/MenuScene';
 import { GameScene } from './scenes/GameScene';
 import { MetaScene } from './scenes/MetaScene';
 
+/**
+ * RESIZE = canvas always matches the real device viewport.
+ * No letterbox bars. Layout uses this.scale.width / height in scenes.
+ */
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   parent: 'game-container',
   backgroundColor: '#0a0e14',
-  width: GAME_WIDTH,
-  height: GAME_HEIGHT,
+  // Initial size — immediately replaced by RESIZE to real viewport
+  width: 360,
+  height: 800,
   scale: {
-    // FIT = always show FULL game (menu, HUD, buttons). No crop.
-    // Uniform scale — sprites never stretch.
-    // Letterbox bars match backgroundColor so they blend on mobile.
-    mode: Phaser.Scale.FIT,
+    mode: Phaser.Scale.RESIZE,
     autoCenter: Phaser.Scale.CENTER_BOTH,
-    width: GAME_WIDTH,
-    height: GAME_HEIGHT,
+    width: 360,
+    height: 800,
     autoRound: true,
   },
   input: {
@@ -52,15 +53,10 @@ const game = new Phaser.Game(config);
 
 function refreshScale(): void {
   try {
-    const parent = document.getElementById('game-container');
-    if (parent) {
-      game.scale.parentSize.setSize(parent.clientWidth, parent.clientHeight);
-    } else {
-      const w = window.visualViewport?.width ?? window.innerWidth;
-      const h = window.visualViewport?.height ?? window.innerHeight;
-      game.scale.parentSize.setSize(w, h);
-    }
-    game.scale.refresh();
+    game.scale.resize(
+      window.visualViewport?.width ?? window.innerWidth,
+      window.visualViewport?.height ?? window.innerHeight,
+    );
   } catch {
     /* not ready */
   }
@@ -78,6 +74,6 @@ if (window.visualViewport) {
 
 requestAnimationFrame(() => {
   refreshScale();
-  setTimeout(refreshScale, 100);
-  setTimeout(refreshScale, 500);
+  setTimeout(refreshScale, 50);
+  setTimeout(refreshScale, 300);
 });

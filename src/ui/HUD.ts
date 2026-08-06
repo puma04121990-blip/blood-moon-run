@@ -1,6 +1,5 @@
 import Phaser from 'phaser';
-import { BALANCE, COLORS, GAME_WIDTH } from '../game/config';
-import { getSafeArea } from '../vk/bridge';
+import { BALANCE, COLORS } from '../game/config';
 
 export interface HudState {
   hp: number;
@@ -18,9 +17,7 @@ export interface HudState {
   paused: boolean;
 }
 
-/**
- * Portrait HUD — positions account for safe-area insets (notch / home bar).
- */
+/** Portrait HUD — positions use real scale width/height (RESIZE mode). */
 export class HUD {
   private scene: Phaser.Scene;
   private root: Phaser.GameObjects.Container;
@@ -37,8 +34,7 @@ export class HUD {
   private pauseBtn: Phaser.GameObjects.Container;
   private onPause: () => void;
   private onSkill: () => void;
-  private safeTop = 0;
-  private safeBottom = 0;
+  private wavePanel!: Phaser.GameObjects.Rectangle;
 
   constructor(scene: Phaser.Scene, onPause: () => void, onSkill: () => void) {
     this.scene = scene;
@@ -46,65 +42,34 @@ export class HUD {
     this.onSkill = onSkill;
     this.root = scene.add.container(0, 0).setScrollFactor(0).setDepth(900);
 
-    const insets = getSafeArea();
-    this.safeTop = Math.max(0, insets.top || 0);
-    this.safeBottom = Math.max(0, insets.bottom || 0);
-    // CSS env() fallback if bridge returned zeros (outside VK)
-    if (this.safeTop === 0 && this.safeBottom === 0) {
-      try {
-        const probe = document.createElement('div');
-        probe.style.paddingTop = 'env(safe-area-inset-top, 0px)';
-        probe.style.paddingBottom = 'env(safe-area-inset-bottom, 0px)';
-        probe.style.position = 'fixed';
-        probe.style.visibility = 'hidden';
-        document.body.appendChild(probe);
-        const cs = getComputedStyle(probe);
-        this.safeTop = parseFloat(cs.paddingTop) || 0;
-        this.safeBottom = parseFloat(cs.paddingBottom) || 0;
-        document.body.removeChild(probe);
-      } catch {
-        /* ignore */
-      }
-    }
+    const topY = 28;
 
-    // Convert CSS px → game units (approximate via scale)
-    const scaleY = scene.scale.displaySize.height / scene.scale.gameSize.height || 1;
-    const topPad = this.safeTop / Math.max(0.01, scaleY);
-    const bottomPad = this.safeBottom / Math.max(0.01, scaleY);
-
-    const topY = 28 + Math.min(topPad, 48);
-
-    // Pause
     this.pauseBtn = this.makeCircleButton(28, topY + 8, 'Ⅱ', () => this.onPause());
     this.root.add(this.pauseBtn);
 
-    // HP bar
     const barX = 56;
-    const barY = topY;
-    const hpW = 140;
-    this.root.add(scene.add.rectangle(barX + hpW / 2, barY, hpW, 14, 0x222222, 0.85).setOrigin(0.5));
-    this.hpBar = scene.add.rectangle(barX, barY, hpW, 14, COLORS.hp, 1).setOrigin(0, 0.5);
+    const hpW = 120;
+    this.root.add(scene.add.rectangle(barX + hpW / 2, topY, hpW, 14, 0x222222, 0.85).setOrigin(0.5));
+    this.hpBar = scene.add.rectangle(barX, topY, hpW, 14, COLORS.hp, 1).setOrigin(0, 0.5);
     this.root.add(this.hpBar);
 
-    // Level + XP
     const xpX = barX + hpW + 8;
     this.levelText = scene.add
-      .text(xpX + 12, barY, '1', {
+      .text(xpX + 12, topY, '1', {
         fontFamily: 'system-ui, sans-serif',
         fontSize: '12px',
         color: '#fff',
         fontStyle: 'bold',
       })
       .setOrigin(0.5);
-    this.root.add(scene.add.rectangle(xpX + 12, barY, 24, 16, 0x1a3a1a, 0.95).setStrokeStyle(1, COLORS.xp));
+    this.root.add(scene.add.rectangle(xpX + 12, topY, 24, 16, 0x1a3a1a, 0.95).setStrokeStyle(1, COLORS.xp));
     this.root.add(this.levelText);
 
-    const xpW = 100;
-    this.root.add(scene.add.rectangle(xpX + 30 + xpW / 2, barY, xpW, 12, 0x222222, 0.85));
-    this.xpBar = scene.add.rectangle(xpX + 30, barY, 0, 12, COLORS.xp, 1).setOrigin(0, 0.5);
+    const xpW = 80;
+    this.root.add(scene.add.rectangle(xpX + 30 + xpW / 2, topY, xpW, 12, 0x222222, 0.85));
+    this.xpBar = scene.add.rectangle(xpX + 30, topY, 0, 12, COLORS.xp, 1).setOrigin(0, 0.5);
     this.root.add(this.xpBar);
 
-    // Currency
     this.root.add(scene.add.circle(28, topY + 36, 8, COLORS.moon, 1));
     this.currencyText = scene.add
       .text(42, topY + 36, '0', {
@@ -116,14 +81,13 @@ export class HUD {
       .setOrigin(0, 0.5);
     this.root.add(this.currencyText);
 
-    // Wave + timer
     const panelY = topY + 24;
-    const panel = scene.add
-      .rectangle(GAME_WIDTH / 2, panelY, 120, 40, COLORS.uiPanel, 0.75)
+    this.wavePanel = scene.add
+      .rectangle(0, panelY, 120, 40, COLORS.uiPanel, 0.75)
       .setStrokeStyle(1, 0xffffff, 0.15);
-    this.root.add(panel);
+    this.root.add(this.wavePanel);
     this.waveText = scene.add
-      .text(GAME_WIDTH / 2, panelY - 10, 'ВОЛНА 1/10', {
+      .text(0, panelY - 10, 'ВОЛНА 1/10', {
         fontFamily: 'system-ui, sans-serif',
         fontSize: '13px',
         color: '#e8eef8',
@@ -131,7 +95,7 @@ export class HUD {
       })
       .setOrigin(0.5);
     this.timerText = scene.add
-      .text(GAME_WIDTH / 2, panelY + 8, '00:00', {
+      .text(0, panelY + 8, '00:00', {
         fontFamily: 'system-ui, sans-serif',
         fontSize: '12px',
         color: '#a0aec0',
@@ -140,22 +104,22 @@ export class HUD {
     this.root.add(this.waveText);
     this.root.add(this.timerText);
 
-    // Moon bar
     const moonY = panelY + 40;
     this.root.add(
       scene.add
-        .text(GAME_WIDTH / 2, moonY - 12, 'ЛУНА', {
+        .text(0, moonY - 12, 'ЛУНА', {
           fontFamily: 'system-ui, sans-serif',
           fontSize: '10px',
           color: '#8ab4ff',
         })
-        .setOrigin(0.5),
+        .setOrigin(0.5)
+        .setName('moonLabel'),
     );
-    this.root.add(scene.add.rectangle(GAME_WIDTH / 2, moonY, 160, 8, 0x222222, 0.85));
-    this.moonBar = scene.add.rectangle(GAME_WIDTH / 2 - 80, moonY, 0, 8, COLORS.moonGlow, 1).setOrigin(0, 0.5);
+    this.root.add(scene.add.rectangle(0, moonY, 160, 8, 0x222222, 0.85).setName('moonBg'));
+    this.moonBar = scene.add.rectangle(-80, moonY, 0, 8, COLORS.moonGlow, 1).setOrigin(0, 0.5);
     this.root.add(this.moonBar);
     this.transformHint = scene.add
-      .text(GAME_WIDTH / 2, moonY + 14, '', {
+      .text(0, moonY + 14, '', {
         fontFamily: 'system-ui, sans-serif',
         fontSize: '11px',
         color: '#ffb4c0',
@@ -163,7 +127,6 @@ export class HUD {
       .setOrigin(0.5);
     this.root.add(this.transformHint);
 
-    // Skill button bottom-left (above home indicator)
     this.skillBtn = scene.add.container(48, 0);
     const skillBg = scene.add.circle(0, 0, 36, 0x2a1a40, 0.9).setStrokeStyle(3, COLORS.howl, 0.9);
     this.skillText = scene.add
@@ -192,9 +155,6 @@ export class HUD {
     });
     this.root.add(this.skillBtn);
 
-    // Store bottom pad for layout
-    (this as unknown as { _bottomPad: number })._bottomPad = Math.min(bottomPad, 40);
-
     scene.scale.on('resize', this.layout, this);
     this.layout();
   }
@@ -219,19 +179,31 @@ export class HUD {
   }
 
   private layout = (): void => {
+    const w = this.scene.scale.width;
     const h = this.scene.scale.height;
-    const bottomPad = (this as unknown as { _bottomPad?: number })._bottomPad || 0;
-    // Skill above joystick + home bar
-    this.skillBtn.setPosition(48, h - 100 - bottomPad);
+    const cx = w / 2;
+
+    this.wavePanel.setX(cx);
+    this.waveText.setX(cx);
+    this.timerText.setX(cx);
+
+    const moonLabel = this.root.getByName('moonLabel') as Phaser.GameObjects.Text | null;
+    const moonBg = this.root.getByName('moonBg') as Phaser.GameObjects.Rectangle | null;
+    if (moonLabel) moonLabel.setX(cx);
+    if (moonBg) moonBg.setX(cx);
+    this.moonBar.setX(cx - 80);
+    this.transformHint.setX(cx);
+
+    this.skillBtn.setPosition(48, h - 100);
   };
 
   update(state: HudState): void {
     const hpRatio = Phaser.Math.Clamp(state.hp / state.maxHp, 0, 1);
-    this.hpBar.width = 140 * hpRatio;
+    this.hpBar.width = 120 * hpRatio;
     this.hpBar.fillColor = hpRatio < 0.3 ? 0xff3030 : COLORS.hp;
 
     const xpRatio = state.xpToNext > 0 ? Phaser.Math.Clamp(state.xp / state.xpToNext, 0, 1) : 0;
-    this.xpBar.width = 100 * xpRatio;
+    this.xpBar.width = 80 * xpRatio;
     this.levelText.setText(String(state.level));
 
     this.currencyText.setText(String(state.currency));
