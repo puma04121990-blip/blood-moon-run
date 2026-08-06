@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { COLORS, GAME_HEIGHT, GAME_WIDTH } from '../game/config';
 import { getUserName, isVkEnvironment } from '../vk/bridge';
 import { getMetaCached } from '../meta/progress';
+import { unlockAudio } from '../audio/unlock';
 
 export class MenuScene extends Phaser.Scene {
   constructor() {
@@ -80,10 +81,12 @@ export class MenuScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.makeButton(w / 2, h * 0.68, 220, 52, 'ИГРАТЬ', COLORS.accent, () => {
+      unlockAudio(this); // critical: unlock inside user gesture
       this.scene.start('Game');
     });
 
     this.makeButton(w / 2, h * 0.77, 220, 48, 'УСИЛЕНИЯ', 0x3a2a60, () => {
+      unlockAudio(this);
       this.scene.start('Meta');
     });
 
@@ -102,6 +105,9 @@ export class MenuScene extends Phaser.Scene {
         color: '#445566',
       })
       .setOrigin(0.5);
+
+    // Extra safety: any first touch on the menu also unlocks
+    this.input.once('pointerdown', () => unlockAudio(this));
   }
 
   private makeButton(

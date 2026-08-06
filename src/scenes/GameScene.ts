@@ -18,6 +18,7 @@ import {
   saveMetaNow,
   type MetaState,
 } from '../meta/progress';
+import { unlockAudio } from '../audio/unlock';
 
 interface Pickup {
   sprite: Phaser.GameObjects.Image | Phaser.GameObjects.Arc;
@@ -75,6 +76,10 @@ export class GameScene extends Phaser.Scene {
     this.gameOver = false;
     this.levelUpOpen = false;
     this.rewardCommitted = false;
+
+    // Safety unlock if user somehow reached Game without Menu gesture
+    unlockAudio(this);
+    this.input.once('pointerdown', () => unlockAudio(this));
 
     this.meta = {
       ...getMetaCached(),
