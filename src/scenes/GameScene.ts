@@ -76,6 +76,9 @@ export class GameScene extends Phaser.Scene {
     unlockAudio(this);
     this.input.once('pointerdown', () => unlockAudio(this));
 
+    // Atmospheric night music
+    SFX.startMusic(this);
+
     this.meta = {
       ...getMetaCached(),
       levels: { ...getMetaCached().levels },
@@ -447,9 +450,17 @@ export class GameScene extends Phaser.Scene {
     if (this.gameOver || this.levelUpOpen) return;
     this.paused = !this.paused;
     SFX.play('ui', this);
+    SFX.setMusicPaused(this.paused);
     if (this.paused) {
       this.showOverlay('ПАУЗА', 'Продолжить · В меню', [
-        { label: 'Продолжить', action: () => { this.paused = false; this.clearOverlay(); } },
+        {
+          label: 'Продолжить',
+          action: () => {
+            this.paused = false;
+            SFX.setMusicPaused(false);
+            this.clearOverlay();
+          },
+        },
         {
           label: 'В меню',
           action: () => {
@@ -491,6 +502,7 @@ export class GameScene extends Phaser.Scene {
     if (this.gameOver) return;
     this.gameOver = true;
     this.spawnTimer?.remove(false);
+    SFX.play('defeat', this);
 
     const base = this.player.currency + this.wave * 2;
     const preview = this.previewShards(base);
@@ -524,6 +536,7 @@ export class GameScene extends Phaser.Scene {
     if (this.gameOver) return;
     this.gameOver = true;
     this.spawnTimer?.remove(false);
+    SFX.play('victory', this);
     const base = this.player.currency + 50;
     const gained = this.commitRunReward(base);
     const msg = `Ночь Оборотня: я пережил ${BALANCE.waveTotal} волн! 🐺🌕`;
@@ -625,6 +638,7 @@ export class GameScene extends Phaser.Scene {
 
   private cleanup(): void {
     this.spawnTimer?.remove(false);
+    SFX.stopMusic();
     this.enemies.forEach((e) => e.destroy());
     this.pickups.forEach((p) => p.sprite.destroy());
     this.player?.destroy();
